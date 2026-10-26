@@ -1,0 +1,22 @@
+services:
+  - type: web
+    name: cgp-turnieje
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install --prefix backend
+    startCommand: npm start --prefix backend
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "22"
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        sync: false
+      - key: BREVO_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
