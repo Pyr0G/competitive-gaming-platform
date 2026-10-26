@@ -3,14 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Competitive Gaming Platform</title>
+    <title>CGP | Turnieje CS2 dla amatorów</title>
+    <link rel="icon" href="assets/favicon.png">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <header class="topbar">
+    <header class="topbar" id="topbar">
         <div class="container topbar-inner">
-            <a href="#" class="logo">CGP<span>.</span></a>
+            <a href="#" class="brand">
+                <img src="assets/logo.png" alt="CGP">
+                <span>CGP</span>
+            </a>
             <nav class="nav">
+                <a href="#jak">Jak to działa</a>
                 <a href="#turnieje">Turnieje</a>
                 <a href="#lfg">Szukam drużyny</a>
                 <a href="#drabinka">Drabinka</a>
@@ -24,162 +29,353 @@
 
     <main>
         <section class="hero">
+            <div class="hero-bg"></div>
+            <div class="hero-grid"></div>
+            <div class="scanline"></div>
+            <div class="container hero-inner">
+                <div class="hero-text">
+                    <p class="eyebrow"><span class="live-dot"></span>Sezon 1 wystartował</p>
+                    <h1>
+                        <span class="line">Znajdź ekipę.</span>
+                        <span class="line outline">Zagraj turniej.</span>
+                        <span class="line accent">Wynik wpisze się sam.</span>
+                    </h1>
+                    <p class="lead">Konto zakładasz samym nickiem i hasłem. Brakującego gracza łapiesz z tablicy ogłoszeń, a po meczu wklejasz tylko link z FACEIT. Zero screenów, zero kłótni o wynik.</p>
+                    <div class="hero-actions">
+                        <a href="#turnieje" class="btn btn-big btn-glow">Zobacz turnieje</a>
+                        <a href="#lfg" class="btn btn-big btn-ghost">Szukam drużyny</a>
+                    </div>
+                    <ul class="stats">
+                        <li><b data-count="5">0</b><span>sekund na konto</span></li>
+                        <li><b data-count="1">0</b><span>link zamiast screena</span></li>
+                        <li><b data-count="0">0</b><span>zł za udział</span></li>
+                    </ul>
+                </div>
+                <div class="hero-logo">
+                    <svg class="ring" viewBox="0 0 200 200" aria-hidden="true">
+                        <circle cx="100" cy="100" r="96" />
+                        <circle cx="100" cy="100" r="82" class="dashed" />
+                        <path d="M100 0 V18 M100 182 V200 M0 100 H18 M182 100 H200" />
+                    </svg>
+                    <img src="assets/logo.png" alt="Logo CGP">
+                </div>
+            </div>
+            <a href="#jak" class="scroll-hint" aria-label="Przewiń niżej"><span></span></a>
+        </section>
+
+        <div class="ticker" aria-label="Na żywo">
+            <div class="ticker-track">
+                <div class="ticker-group">
+                    <span class="ticker-live">Na żywo</span>
+                    <span><b>Ekipa z Akademika</b> 13:8 <b>Cebulowe Smoki</b></span>
+                    <i></i>
+                    <span><b>Nocne Marki</b> vs <b>Sigma Squad</b> czeka na wynik</span>
+                    <i></i>
+                    <span><b>Pół Składu</b> szuka entry, FACEIT 6+</span>
+                    <i></i>
+                    <span><b>Nocny Turniej BO3</b> zapisy do 14.11</span>
+                    <i></i>
+                </div>
+                <div class="ticker-group" aria-hidden="true">
+                    <span class="ticker-live">Na żywo</span>
+                    <span><b>Ekipa z Akademika</b> 13:8 <b>Cebulowe Smoki</b></span>
+                    <i></i>
+                    <span><b>Nocne Marki</b> vs <b>Sigma Squad</b> czeka na wynik</span>
+                    <i></i>
+                    <span><b>Pół Składu</b> szuka entry, FACEIT 6+</span>
+                    <i></i>
+                    <span><b>Nocny Turniej BO3</b> zapisy do 14.11</span>
+                    <i></i>
+                </div>
+            </div>
+        </div>
+
+        <section id="jak" class="section">
             <div class="container">
-                <p class="tag">CS2 | turnieje amatorskie</p>
-                <h1>Znajdź ekipę, zagraj turniej, wynik wpisze się sam.</h1>
-                <p class="lead">Konto zakładasz samym nickiem i hasłem. Brakującego gracza znajdziesz na tablicy ogłoszeń, a po meczu wklejasz tylko link z FACEIT.</p>
-                <div class="hero-actions">
-                    <a href="#turnieje" class="btn btn-big">Zobacz turnieje</a>
-                    <a href="#lfg" class="btn btn-big btn-ghost">Szukam drużyny</a>
+                <div class="section-head reveal">
+                    <span class="section-num">01</span>
+                    <h2>Jak to działa</h2>
+                    <p>Od braku drużyny do meczu w drabince w czterech krokach.</p>
+                </div>
+                <div class="how">
+                    <div class="how-photo reveal">
+                        <img src="assets/lan.jpg" alt="Gracze przy komputerach na turnieju">
+                        <div class="how-photo-tag">LAN, który ogarniesz z telefonu</div>
+                    </div>
+                    <ol class="steps">
+                        <li class="step reveal">
+                            <span class="step-num">1</span>
+                            <div>
+                                <h3>Zakładasz konto</h3>
+                                <p>Nick i hasło. Bez maila, bez czekania na link aktywacyjny. Potem dopisujesz swój FACEIT i rolę.</p>
+                            </div>
+                        </li>
+                        <li class="step reveal">
+                            <span class="step-num">2</span>
+                            <div>
+                                <h3>Szukasz ludzi</h3>
+                                <p>Wrzucasz ogłoszenie albo przeglądasz cudze. Filtrujesz po roli, poziomie i porze grania.</p>
+                            </div>
+                        </li>
+                        <li class="step reveal">
+                            <span class="step-num">3</span>
+                            <div>
+                                <h3>Gadasz i dołączasz</h3>
+                                <p>Piszesz do kapitana na czacie. Dostajesz kod drużyny, wpisujesz go i jesteś w składzie.</p>
+                            </div>
+                        </li>
+                        <li class="step reveal">
+                            <span class="step-num">4</span>
+                            <div>
+                                <h3>Grasz i wklejasz link</h3>
+                                <p>Mecz idzie na FACEIT. Kapitan wkleja link, a strona sama sprawdza graczy, wpisuje wynik i przesuwa drabinkę.</p>
+                            </div>
+                        </li>
+                    </ol>
                 </div>
             </div>
         </section>
 
-        <section id="turnieje" class="section">
+        <section id="turnieje" class="section section-dark">
             <div class="container">
-                <h2>Turnieje</h2>
-                <div class="grid">
-                    <article class="card">
-                        <div class="card-head">
+                <div class="section-head reveal">
+                    <span class="section-num">02</span>
+                    <h2>Turnieje</h2>
+                    <p>Zapisujesz całą piątkę, resztę ogarnia strona.</p>
+                </div>
+                <div class="tournaments">
+                    <article class="t-card reveal" style="--img: url('assets/setup.jpg')">
+                        <div class="t-card-img"></div>
+                        <div class="t-card-body">
+                            <div class="t-card-top">
+                                <span class="badge badge-live"><span class="live-dot"></span>W trakcie</span>
+                                <span class="format">BO1</span>
+                            </div>
                             <h3>Puchar Akademika #1</h3>
-                            <span class="badge badge-live">W trakcie</span>
+                            <ul class="meta">
+                                <li><span>Start</span>24.10, 18:00</li>
+                                <li><span>Drużyny</span>4 / 8</li>
+                                <li><span>Etap</span>Półfinały</li>
+                            </ul>
+                            <div class="slots" style="--fill: 50%"><div></div></div>
+                            <a href="#drabinka" class="btn btn-ghost btn-full">Zobacz drabinkę</a>
                         </div>
-                        <ul class="meta">
-                            <li><span>Format</span>BO1</li>
-                            <li><span>Start</span>24.10, 18:00</li>
-                            <li><span>Drużyny</span>4 / 8</li>
-                        </ul>
-                        <div class="slots"><div style="width: 50%"></div></div>
-                        <a href="#drabinka" class="btn btn-ghost btn-full">Zobacz drabinkę</a>
                     </article>
-                    <article class="card">
-                        <div class="card-head">
+                    <article class="t-card reveal" style="--img: url('assets/keyboard.jpg')">
+                        <div class="t-card-img"></div>
+                        <div class="t-card-body">
+                            <div class="t-card-top">
+                                <span class="badge badge-open">Zapisy otwarte</span>
+                                <span class="format">BO3</span>
+                            </div>
                             <h3>Nocny Turniej BO3</h3>
-                            <span class="badge badge-open">Zapisy</span>
+                            <ul class="meta">
+                                <li><span>Start</span>15.11, 18:00</li>
+                                <li><span>Drużyny</span>1 / 16</li>
+                                <li><span>Zapisy do</span>14.11</li>
+                            </ul>
+                            <div class="slots" style="--fill: 6.25%"><div></div></div>
+                            <a href="#" class="btn btn-full btn-glow">Zapisz drużynę</a>
                         </div>
-                        <ul class="meta">
-                            <li><span>Format</span>BO3</li>
-                            <li><span>Start</span>15.11, 18:00</li>
-                            <li><span>Drużyny</span>1 / 16</li>
-                        </ul>
-                        <div class="slots"><div style="width: 6%"></div></div>
-                        <a href="#" class="btn btn-full">Zapisz drużynę</a>
                     </article>
                 </div>
             </div>
         </section>
 
-        <section id="lfg" class="section section-alt">
+        <section id="lfg" class="section">
             <div class="container">
-                <h2>Szukam drużyny / gracza</h2>
-                <form class="filters">
-                    <select>
-                        <option>Każda rola</option>
-                        <option>Entry</option>
-                        <option>Support</option>
-                        <option>AWP</option>
-                        <option>IGL</option>
-                        <option>Flex</option>
-                    </select>
-                    <select>
-                        <option>Każdy poziom</option>
-                        <option>FACEIT 1-3</option>
-                        <option>FACEIT 4-6</option>
-                        <option>FACEIT 7-10</option>
-                    </select>
-                    <select>
-                        <option>Każda pora</option>
-                        <option>Wieczory</option>
-                        <option>Weekendy</option>
-                        <option>Noce</option>
-                    </select>
+                <div class="section-head reveal">
+                    <span class="section-num">03</span>
+                    <h2>Szukam drużyny / gracza</h2>
+                    <p>Ogłoszenie wisi 7 dni. Klikasz „Napisz” i od razu jesteś na czacie z autorem.</p>
+                </div>
+                <form class="filters reveal" id="filters">
+                    <label class="select">
+                        <span>Rola</span>
+                        <select name="role">
+                            <option value="">Każda</option>
+                            <option value="entry">Entry</option>
+                            <option value="support">Support</option>
+                            <option value="awp">AWP</option>
+                            <option value="igl">IGL</option>
+                            <option value="flex">Flex</option>
+                        </select>
+                    </label>
+                    <label class="select">
+                        <span>Poziom FACEIT</span>
+                        <select name="level">
+                            <option value="">Każdy</option>
+                            <option value="1-3">1 do 3</option>
+                            <option value="4-7">4 do 7</option>
+                            <option value="8-10">8 do 10</option>
+                        </select>
+                    </label>
+                    <label class="select">
+                        <span>Kiedy gra</span>
+                        <select name="time">
+                            <option value="">Obojętnie</option>
+                            <option value="wieczory">Wieczory</option>
+                            <option value="weekendy">Weekendy</option>
+                            <option value="noce">Noce</option>
+                        </select>
+                    </label>
+                    <p class="filters-count" id="ads-count"></p>
                 </form>
-                <div class="grid">
-                    <article class="card ad">
-                        <div class="card-head">
-                            <span class="badge badge-lfm">Drużyna szuka gracza</span>
+                <div class="ads" id="ads">
+                    <article class="ad reveal" data-role="entry" data-level="6" data-time="wieczory">
+                        <div class="ad-top">
+                            <span class="badge badge-lfm">Szuka gracza</span>
                             <span class="time">2 godz. temu</span>
                         </div>
-                        <h3>Pół Składu <small>[PLS]</small></h3>
-                        <p>Brakuje nam entry fraggera, FACEIT 6 lub wyżej. Gramy na spokojnie.</p>
+                        <div class="ad-who">
+                            <span class="avatar">PLS</span>
+                            <div>
+                                <h3>Pół Składu</h3>
+                                <p class="ad-sub">kapitan: Tomek, 4 / 5 w składzie</p>
+                            </div>
+                        </div>
+                        <p class="ad-text">Brakuje nam entry fraggera, FACEIT 6 lub wyżej. Gramy na spokojnie.</p>
                         <ul class="chips">
                             <li>Entry</li>
-                            <li>FACEIT 6+</li>
+                            <li><span class="lvl lvl-6">6+</span>FACEIT</li>
                             <li>Wieczory po 19</li>
                         </ul>
                         <a href="#" class="btn btn-full">Napisz</a>
                     </article>
-                    <article class="card ad">
-                        <div class="card-head">
-                            <span class="badge badge-lfc">Gracz szuka drużyny</span>
+                    <article class="ad reveal" data-role="entry" data-level="7" data-time="wieczory weekendy">
+                        <div class="ad-top">
+                            <span class="badge badge-lfc">Szuka drużyny</span>
                             <span class="time">1 dzień temu</span>
                         </div>
-                        <h3>Kuba</h3>
-                        <p>Szukam ekipy na turnieje, gram entry. Mam mikrofon i ogarniam callouty.</p>
+                        <div class="ad-who">
+                            <span class="avatar avatar-player">K</span>
+                            <div>
+                                <h3>Kuba</h3>
+                                <p class="ad-sub">kuba_entry</p>
+                            </div>
+                        </div>
+                        <p class="ad-text">Szukam ekipy na turnieje, gram entry. Mam mikrofon i ogarniam callouty.</p>
                         <ul class="chips">
                             <li>Entry</li>
-                            <li>FACEIT 7</li>
+                            <li><span class="lvl lvl-7">7</span>FACEIT</li>
                             <li>Wieczory, weekendy</li>
                         </ul>
                         <a href="#" class="btn btn-full">Napisz</a>
                     </article>
-                    <article class="card ad">
-                        <div class="card-head">
-                            <span class="badge badge-lfc">Gracz szuka drużyny</span>
+                    <article class="ad reveal" data-role="support" data-level="4" data-time="weekendy">
+                        <div class="ad-top">
+                            <span class="badge badge-lfc">Szuka drużyny</span>
                             <span class="time">3 dni temu</span>
                         </div>
-                        <h3>Ola</h3>
-                        <p>Szukam luźnej drużyny, chcę zagrać pierwszy turniej.</p>
+                        <div class="ad-who">
+                            <span class="avatar avatar-player">O</span>
+                            <div>
+                                <h3>Ola</h3>
+                                <p class="ad-sub">ola_supp</p>
+                            </div>
+                        </div>
+                        <p class="ad-text">Szukam luźnej drużyny, chcę zagrać pierwszy turniej.</p>
                         <ul class="chips">
                             <li>Support</li>
-                            <li>FACEIT 4</li>
+                            <li><span class="lvl lvl-4">4</span>FACEIT</li>
                             <li>Weekendy</li>
                         </ul>
                         <a href="#" class="btn btn-full">Napisz</a>
                     </article>
+                    <article class="ad reveal" data-role="awp" data-level="9" data-time="noce">
+                        <div class="ad-top">
+                            <span class="badge badge-lfc">Szuka drużyny</span>
+                            <span class="time">5 godz. temu</span>
+                        </div>
+                        <div class="ad-who">
+                            <span class="avatar avatar-player">W</span>
+                            <div>
+                                <h3>Wojtek</h3>
+                                <p class="ad-sub">wojtek_awp</p>
+                            </div>
+                        </div>
+                        <p class="ad-text">AWP, gram głównie w nocy. Szukam ekipy na drugi turniej, najlepiej BO3.</p>
+                        <ul class="chips">
+                            <li>AWP</li>
+                            <li><span class="lvl lvl-9">9</span>FACEIT</li>
+                            <li>Noce</li>
+                        </ul>
+                        <a href="#" class="btn btn-full">Napisz</a>
+                    </article>
                 </div>
+                <p class="empty" id="ads-empty" hidden>Nikt taki teraz nie szuka. Wrzuć własne ogłoszenie.</p>
             </div>
         </section>
 
-        <section id="drabinka" class="section">
+        <section id="drabinka" class="section section-dark section-bracket">
             <div class="container">
-                <h2>Drabinka: Puchar Akademika #1</h2>
-                <div class="bracket">
-                    <div class="round">
-                        <p class="round-name">Półfinały</p>
-                        <div class="match done">
-                            <div class="team win"><span>Ekipa z Akademika</span><b>13</b></div>
-                            <div class="team"><span>Cebulowe Smoki</span><b>8</b></div>
-                            <p class="status">Wynik z FACEIT</p>
+                <div class="section-head reveal">
+                    <span class="section-num">04</span>
+                    <h2>Drabinka: Puchar Akademika #1</h2>
+                    <p>Wynik z FACEIT trafia tu sam, a zwycięzca od razu idzie dalej.</p>
+                </div>
+                <div class="bracket reveal" id="bracket">
+                    <p class="round-name">Półfinały</p>
+                    <p class="round-name round-name-final">Finał</p>
+                    <div class="round round-1">
+                        <div class="slot">
+                            <div class="match done">
+                                <div class="team win"><span class="team-tag">AKD</span><span class="team-name">Ekipa z Akademika</span><b>13</b></div>
+                                <div class="team lose"><span class="team-tag">CBS</span><span class="team-name">Cebulowe Smoki</span><b>8</b></div>
+                                <p class="status"><span class="check"></span>Wynik z FACEIT</p>
+                            </div>
                         </div>
-                        <div class="match">
-                            <div class="team"><span>Nocne Marki</span><b>-</b></div>
-                            <div class="team"><span>Sigma Squad</span><b>-</b></div>
-                            <p class="status status-wait">Czekamy na link z FACEIT</p>
+                        <div class="slot">
+                            <div class="match pending">
+                                <div class="team"><span class="team-tag">NCM</span><span class="team-name">Nocne Marki</span><b>-</b></div>
+                                <div class="team"><span class="team-tag">SGM</span><span class="team-name">Sigma Squad</span><b>-</b></div>
+                                <p class="status status-wait"><span class="live-dot"></span>Czekamy na link z FACEIT</p>
+                            </div>
                         </div>
                     </div>
-                    <div class="round round-final">
-                        <p class="round-name">Finał</p>
-                        <div class="match">
-                            <div class="team"><span>Ekipa z Akademika</span><b>-</b></div>
-                            <div class="team tbd"><span>Do ustalenia</span><b>-</b></div>
-                            <p class="status">Zaplanowany</p>
+                    <svg class="lines" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">
+                        <path class="line-win" d="M0 25 H50 V50 H100" />
+                        <path class="line-wait" d="M0 75 H50 V50" />
+                    </svg>
+                    <div class="round round-2">
+                        <div class="slot">
+                            <div class="match final">
+                                <div class="team"><span class="team-tag">AKD</span><span class="team-name">Ekipa z Akademika</span><b>-</b></div>
+                                <div class="team tbd"><span class="team-tag">?</span><span class="team-name">Do ustalenia</span><b>-</b></div>
+                                <p class="status">Zaplanowany</p>
+                            </div>
                         </div>
                     </div>
                 </div>
-                <form class="faceit">
+                <form class="faceit reveal" id="faceit-form" novalidate>
                     <label for="faceit-link">Wklej link do meczu z FACEIT</label>
                     <div class="faceit-row">
-                        <input id="faceit-link" type="url" placeholder="https://www.faceit.com/pl/cs2/room/1-...">
-                        <button type="button" class="btn">Zatwierdź wynik</button>
+                        <input id="faceit-link" type="url" placeholder="https://www.faceit.com/pl/cs2/room/1-..." autocomplete="off">
+                        <button type="submit" class="btn btn-glow">Zatwierdź wynik</button>
                     </div>
+                    <p class="faceit-msg" id="faceit-msg" aria-live="polite"></p>
                 </form>
+            </div>
+        </section>
+
+        <section class="cta">
+            <div class="cta-bg"></div>
+            <div class="container cta-inner reveal">
+                <h2>Brakuje Ci jednej osoby do składu?</h2>
+                <p>Załóż konto w 5 sekund i wrzuć ogłoszenie. Ktoś na pewno szuka ekipy właśnie teraz.</p>
+                <a href="#" class="btn btn-big btn-glow">Załóż konto</a>
             </div>
         </section>
     </main>
 
     <footer class="footer">
-        <div class="container">Competitive Gaming Platform | projekt studencki</div>
+        <div class="container footer-inner">
+            <a href="#" class="brand"><img src="assets/logo.png" alt="CGP"><span>CGP</span></a>
+            <p>Competitive Gaming Platform, projekt studencki</p>
+            <p class="credits">Zdjęcia: Unsplash</p>
+        </div>
     </footer>
+
+    <script src="app.js"></script>
 </body>
 </html>
