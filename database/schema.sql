@@ -7,8 +7,9 @@ CREATE TYPE match_status AS ENUM ('scheduled', 'ready', 'awaiting_result', 'fini
 CREATE TABLE users (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     nick VARCHAR(32) NOT NULL,
+    email VARCHAR(254) NOT NULL CHECK (email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$'),
+    email_verified_at TIMESTAMPTZ,
     password_hash TEXT NOT NULL,
-    recovery_code_hash TEXT,
     faceit_player_id VARCHAR(64) UNIQUE,
     faceit_nick VARCHAR(64),
     faceit_level SMALLINT CHECK (faceit_level BETWEEN 1 AND 10),
@@ -20,6 +21,25 @@ CREATE TABLE users (
 );
 
 CREATE UNIQUE INDEX users_nick_unique ON users (LOWER(nick));
+CREATE UNIQUE INDEX users_email_unique ON users (LOWER(email));
+
+CREATE TABLE email_verifications (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '24 hours',
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE password_resets (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    expires_at TIMESTAMPTZ NOT NULL DEFAULT NOW() + INTERVAL '1 hour',
+    used_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE teams (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -137,6 +157,8 @@ CREATE TABLE matches (
     winner_id BIGINT REFERENCES teams (id),
     team1_score SMALLINT CHECK (team1_score >= 0),
     team2_score SMALLINT CHECK (team2_score >= 0),
+    map VARCHAR(32),
+    scheduled_at TIMESTAMPTZ,
     faceit_match_id VARCHAR(64) UNIQUE,
     status match_status NOT NULL DEFAULT 'scheduled',
     finished_at TIMESTAMPTZ,
