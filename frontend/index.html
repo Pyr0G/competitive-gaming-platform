@@ -270,7 +270,7 @@
                             </ul>
                             <div class="slots-grid" data-filled="4" data-total="8"></div>
                             <div class="t-card-actions">
-                                <button type="button" class="btn btn-full" data-show-bracket="puchar">Zobacz drabinkę</button>
+                                <button type="button" class="btn btn-full" data-show-bracket="Puchar Akademika #1">Zobacz drabinkę</button>
                             </div>
                         </div>
                     </article>
@@ -290,7 +290,7 @@
                             <div class="slots-grid" data-filled="5" data-total="8"></div>
                             <div class="countdown" data-deadline="2026-11-07T18:00:00+01:00"></div>
                             <div class="t-card-actions">
-                                <button type="button" class="btn btn-ghost" data-show-bracket="sesja">Zapisane drużyny</button>
+                                <button type="button" class="btn btn-ghost" data-show-bracket="Sesja Cup">Zapisane drużyny</button>
                                 <button type="button" class="btn btn-glow" data-modal="register" data-note="Żeby zapisać drużynę, załóż konto albo się zaloguj.">Zapisz drużynę</button>
                             </div>
                         </div>
@@ -311,7 +311,7 @@
                             <div class="slots-grid" data-filled="1" data-total="16"></div>
                             <div class="countdown" data-deadline="2026-11-14T18:00:00+01:00"></div>
                             <div class="t-card-actions">
-                                <button type="button" class="btn btn-ghost" data-show-bracket="nocny">Zapisane drużyny</button>
+                                <button type="button" class="btn btn-ghost" data-show-bracket="Nocny Turniej BO3">Zapisane drużyny</button>
                                 <button type="button" class="btn btn-glow" data-modal="register" data-note="Żeby zapisać drużynę, załóż konto albo się zaloguj.">Zapisz drużynę</button>
                             </div>
                         </div>
@@ -335,7 +335,7 @@
                                 <b>Sigma Squad</b>
                             </div>
                             <div class="t-card-actions">
-                                <button type="button" class="btn btn-full btn-ghost" data-show-bracket="otwarcie">Zobacz drabinkę</button>
+                                <button type="button" class="btn btn-full btn-ghost" data-show-bracket="Turniej Otwarcia">Zobacz drabinkę</button>
                             </div>
                         </div>
                     </article>
@@ -579,6 +579,18 @@
                 <label>E-mail<input name="email" type="email" autocomplete="email" placeholder="np. kuba@example.com"></label>
                 <button type="submit" class="btn btn-full btn-glow">Wyślij link</button>
                 <p class="modal-hint"><button type="button" class="link-btn" data-tab-go="login">Wróć do logowania</button></p>
+                <p class="form-msg" aria-live="polite"></p>
+            </form>
+            <form class="modal-form" id="form-newpass" data-form="newpass" novalidate hidden>
+                <p class="modal-hint">Wpisz nowe hasło do swojego konta.</p>
+                <label>Nowe hasło<input name="password" type="password" autocomplete="new-password" placeholder="minimum 8 znaków"></label>
+                <label>Powtórz hasło<input name="password2" type="password" autocomplete="new-password" placeholder="to samo hasło"></label>
+                <button type="submit" class="btn btn-full btn-glow">Zapisz hasło</button>
+                <p class="form-msg" aria-live="polite"></p>
+            </form>
+            <form class="modal-form" id="form-account" data-form="account" novalidate hidden>
+                <p class="modal-hint">Jesteś zalogowany jako <b id="account-nick"></b> (<span id="account-email"></span>).</p>
+                <button type="submit" class="btn btn-full">Wyloguj</button>
                 <p class="form-msg" aria-live="polite"></p>
             </form>
         </div>

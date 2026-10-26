@@ -285,16 +285,16 @@ if (canAim) {
     });
 }
 
-$$(".ad").forEach((card) => {
-    card.addEventListener("pointermove", (e) => {
-        const r = card.getBoundingClientRect();
-        card.style.setProperty("--mx", `${e.clientX - r.left}px`);
-        card.style.setProperty("--my", `${e.clientY - r.top}px`);
-    });
+$("#ads").addEventListener("pointermove", (e) => {
+    const card = e.target.closest(".ad");
+    if (!card) return;
+    const r = card.getBoundingClientRect();
+    card.style.setProperty("--mx", `${e.clientX - r.left}px`);
+    card.style.setProperty("--my", `${e.clientY - r.top}px`);
 });
 
 const filters = $("#filters");
-const ads = $$(".ad");
+let ads = $$(".ad");
 
 const applyFilters = () => {
     const role = filters.role.value;
@@ -316,7 +316,7 @@ const applyFilters = () => {
 filters.addEventListener("change", applyFilters);
 applyFilters();
 
-const TEAMS = {
+let TEAMS = {
     AKD: "Ekipa z Akademika",
     CBS: "Cebulowe Smoki",
     NCM: "Nocne Marki",
@@ -340,7 +340,7 @@ const fakeId = (seed) => {
 
 const done = (a, b, sa, sb, map, time) => ({ a, b, sa, sb, map, time, state: "done", faceit: fakeId(a + b + map) });
 
-const TOURNAMENTS = [
+let TOURNAMENTS = [
     {
         id: "puchar",
         name: "Puchar Akademika #1",
@@ -563,8 +563,8 @@ const pickDefault = () => {
     return { r: current.rounds.length - 1, m: 0 };
 };
 
-const selectTournament = (id) => {
-    current = TOURNAMENTS.find((t) => t.id === id) || TOURNAMENTS[0];
+const selectTournament = (key) => {
+    current = TOURNAMENTS.find((t) => t.id === key || t.name === key) || TOURNAMENTS[0];
     selected = pickDefault();
     renderTabs();
     renderInfo();
@@ -593,7 +593,7 @@ $$("[data-show-bracket]").forEach((btn) => btn.addEventListener("click", () => {
     $("#drabinka").scrollIntoView({ behavior: "smooth" });
 }));
 
-selectTournament("puchar");
+selectTournament(TOURNAMENTS[0].id);
 
 const faceitForm = $("#faceit-form");
 const faceitInput = $("#faceit-link");
@@ -627,6 +627,16 @@ const showFaceit = (html, type) => {
 const usedIds = () => TOURNAMENTS.flatMap((t) => (t.rounds || []).flat()).map((m) => m.faceit).filter(Boolean);
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+const pendingSpot = () => {
+    for (const t of TOURNAMENTS) {
+        for (let r = 0; r < (t.rounds || []).length; r++) {
+            const m = t.rounds[r].findIndex((x) => x.state === "pending" && x.a && x.b);
+            if (m >= 0) return { t, r, m };
+        }
+    }
+    return null;
+};
+
 faceitForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     faceitSteps.innerHTML = "";
@@ -639,14 +649,13 @@ faceitForm.addEventListener("submit", async (e) => {
     const id = found[2].toLowerCase();
     if (usedIds().includes(id)) return showFaceit("Ten link był już użyty przy innym meczu. Jeden mecz z FACEIT liczy się tylko raz.", "err");
 
-    const puchar = TOURNAMENTS[0];
-    const semi = puchar.rounds[0].find((m) => m.state === "pending");
-    if (!semi) return showFaceit("W Pucharze Akademika nie ma już meczu, który czeka na wynik. Odśwież stronę, żeby zacząć demo od nowa.", "err");
+    const spot = pendingSpot();
+    if (!spot) return showFaceit("Żaden turniej nie ma teraz meczu, który czeka na wynik. Odśwież stronę, żeby zacząć demo od nowa.", "err");
 
     showFaceit("", "");
     faceitButton.disabled = true;
-    if (current !== puchar) selectTournament("puchar");
-    selected = { r: 0, m: puchar.rounds[0].indexOf(semi) };
+    if (current !== spot.t) selectTournament(spot.t.id);
+    selected = { r: spot.r, m: spot.m };
     renderBracket();
     renderPanel();
 
@@ -666,19 +675,23 @@ faceitForm.addEventListener("submit", async (e) => {
         li.classList.add("ok");
     }
 
-    Object.assign(semi, { sa: 10, sb: 13, state: "done", faceit: id });
-    const final = puchar.rounds[1][0];
-    final.b = winnerOf(semi);
-    final.state = "ready";
-    selected = { r: 1, m: 0 };
+    const played = spot.t.rounds[spot.r][spot.m];
+    Object.assign(played, { sa: 10, sb: 13, state: "done", faceit: id });
+    const winner = winnerOf(played);
+    const next = spot.t.rounds[spot.r + 1]?.[Math.floor(spot.m / 2)];
+    if (next) {
+        next[spot.m % 2 ? "b" : "a"] = winner;
+        if (next.a && next.b) next.state = "ready";
+        selected = { r: spot.r + 1, m: Math.floor(spot.m / 2) };
+    }
     renderInfo();
     renderBracket();
     renderPanel();
 
-    const flashed = $(`.round:last-child [data-team="${final.b}"]`, bracket);
+    const flashed = $(`.round:nth-child(${spot.r + 2}) [data-team="${winner}"]`, bracket);
     if (flashed) flashed.classList.add("flash");
 
-    showFaceit(`Gotowe. <b>${TEAMS[final.b]}</b> wygrywa 13:10 i wchodzi do finału. W prawdziwej wersji wynik przyjdzie prosto z FACEIT API.`, "ok");
+    showFaceit(`Gotowe. <b>${TEAMS[winner]}</b> wygrywa 13:10${next ? " i idzie dalej" : ""}. To tryb demo, wynik nie zapisuje się w bazie. Prawdziwy przyjdzie z FACEIT API.`, "ok");
     faceitButton.disabled = false;
 });
 
@@ -687,6 +700,14 @@ const modalNote = $("#modal-note");
 const modalTabs = $$(".modal-tab", modal);
 const forms = $$(".modal-form", modal);
 
+const TITLES = {
+    login: "Witaj z powrotem",
+    register: "Dołącz do CGP",
+    reset: "Zapomniane hasło",
+    newpass: "Nowe hasło",
+    account: "Twoje konto",
+};
+
 const setModalTab = (name) => {
     modalTabs.forEach((tab) => tab.classList.toggle("active", tab.dataset.tab === name));
     forms.forEach((form) => {
@@ -694,24 +715,31 @@ const setModalTab = (name) => {
         $(".form-msg", form).textContent = "";
         $(".form-msg", form).className = "form-msg";
     });
-    $("#modal-title").textContent = { login: "Witaj z powrotem", register: "Dołącz do CGP", reset: "Nowe hasło" }[name];
+    $(".modal-tabs", modal).hidden = name === "account" || name === "newpass";
+    $("#modal-title").textContent = TITLES[name];
 };
 
 $$("[data-tab-go]", modal).forEach((btn) => btn.addEventListener("click", () => {
     setModalTab(btn.dataset.tabGo);
-    $(`[data-form="${btn.dataset.tabGo}"] input`, modal).focus();
+    $(`[data-form="${btn.dataset.tabGo}"] input`, modal)?.focus();
 }));
 
 const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const clean = (text) => text.replace(/[<>&"]/g, "");
+const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+
+let currentUser = null;
 
 const openModal = (name, note) => {
+    if (currentUser && (name === "login" || name === "register")) {
+        name = "account";
+        note = note ? "Jesteś zalogowany. Ta funkcja wejdzie w kolejnym etapie projektu." : "";
+    }
     setModalTab(name);
     modalNote.hidden = !note;
     modalNote.textContent = note || "";
     modal.hidden = false;
     document.body.classList.add("locked");
-    setTimeout(() => $(`[data-form="${name}"] input`, modal).focus(), 50);
+    setTimeout(() => $(`[data-form="${name}"] input`, modal)?.focus(), 50);
 };
 
 const closeModal = () => {
@@ -737,35 +765,201 @@ const formMessage = (form, html, type) => {
     msg.className = `form-msg ${type}`;
 };
 
-$("#form-login").addEventListener("submit", (e) => {
+const api = async (path, body) => {
+    const options = body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
+    const res = await fetch(`/api${path}`, options);
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(data.error || "Serwer nie odpowiada. Spróbuj za chwilę."), { data });
+    return data;
+};
+
+const backend = location.protocol.startsWith("http")
+    ? api("/health").then(() => true).catch(() => false)
+    : Promise.resolve(false);
+
+const send = async (form, path, body, demoText) => {
+    if (!(await backend)) {
+        formMessage(form, `Tryb demo: ${demoText}`, "ok");
+        return null;
+    }
+    const button = $("button[type=submit]", form);
+    button.disabled = true;
+    try {
+        return await api(path, body);
+    } catch (err) {
+        formMessage(form, esc(err.message), "err");
+        err.handled = true;
+        throw err;
+    } finally {
+        button.disabled = false;
+    }
+};
+
+const loginButton = $(".btn-login");
+const registerButton = $(".auth > .btn[data-modal=register]");
+
+const setUser = (user) => {
+    currentUser = user;
+    $("span", loginButton).textContent = user ? user.nick : "Zaloguj";
+    loginButton.dataset.modal = user ? "account" : "login";
+    loginButton.classList.toggle("logged", Boolean(user));
+    registerButton.hidden = Boolean(user);
+    $("#account-nick").textContent = user?.nick || "";
+    $("#account-email").textContent = user?.email || "";
+};
+
+$("#form-login").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const login = form.login.value.trim();
     if (!login || !form.password.value) return formMessage(form, "Wpisz nick albo e-mail i hasło.", "err");
     if (login.includes("@") && !emailPattern.test(login)) return formMessage(form, "Ten e-mail wygląda na niepełny.", "err");
-    formMessage(form, `Tryb demo: logowanie podepniemy, jak będzie backend. Cześć, <b>${clean(login)}</b>!`, "ok");
+
+    try {
+        const data = await send(form, "/auth/login", { login, password: form.password.value }, `logowanie działa po wejściu na stronę online. Cześć, <b>${esc(login)}</b>!`);
+        if (!data) return;
+        setUser(data.user);
+        formMessage(form, `Cześć <b>${esc(data.user.nick)}</b>, jesteś zalogowany.`, "ok");
+        form.reset();
+        setTimeout(closeModal, 900);
+    } catch (err) {
+        if (err.data?.unverified) {
+            formMessage(form, `${esc(err.message)} <button type="button" class="link-btn" data-resend="${esc(err.data.unverified)}">Wyślij link ponownie</button>`, "err");
+        }
+    }
 });
 
-$("#form-register").addEventListener("submit", (e) => {
+modal.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-resend]");
+    if (!btn) return;
+    btn.disabled = true;
+    const data = await api("/auth/resend", { email: btn.dataset.resend }).catch((err) => ({ message: err.message }));
+    formMessage($("#form-login"), esc(data.message), "ok");
+});
+
+$("#form-register").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const nick = form.nick.value.trim();
     const email = form.email.value.trim();
-    const pass = form.password.value;
+    const password = form.password.value;
 
     if (nick.length < 3 || nick.length > 32) return formMessage(form, "Nick musi mieć od 3 do 32 znaków.", "err");
     if (!/^[\p{L}\p{N}_.-]+$/u.test(nick)) return formMessage(form, "Nick może mieć tylko litery, cyfry oraz znaki _ . -", "err");
     if (!emailPattern.test(email) || email.length > 254) return formMessage(form, "Podaj poprawny e-mail, np. kuba@example.com", "err");
-    if (pass.length < 8) return formMessage(form, "Hasło musi mieć co najmniej 8 znaków.", "err");
-    if (pass !== form.password2.value) return formMessage(form, "Hasła się różnią.", "err");
+    if (password.length < 8) return formMessage(form, "Hasło musi mieć co najmniej 8 znaków.", "err");
+    if (password !== form.password2.value) return formMessage(form, "Hasła się różnią.", "err");
 
-    formMessage(form, `Konto <b>${nick}</b> prawie gotowe (tryb demo). Kliknij link, który wysłaliśmy na <b>${clean(email)}</b>, żeby je aktywować.`, "ok");
+    const data = await send(form, "/auth/register", { nick, email, password }, `na stronie online na <b>${esc(email)}</b> przyjdzie link aktywacyjny.`).catch(() => null);
+    if (!data) return;
+    formMessage(form, esc(data.message), "ok");
+    form.reset();
 });
 
-$("#form-reset").addEventListener("submit", (e) => {
+$("#form-reset").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const email = form.email.value.trim();
     if (!emailPattern.test(email)) return formMessage(form, "Podaj poprawny e-mail.", "err");
-    formMessage(form, `Jeśli konto z adresem <b>${clean(email)}</b> istnieje, za chwilę przyjdzie link do zmiany hasła (tryb demo).`, "ok");
+
+    const data = await send(form, "/auth/forgot", { email }, `na stronie online link do zmiany hasła przyjdzie na <b>${esc(email)}</b>.`).catch(() => null);
+    if (data) formMessage(form, esc(data.message), "ok");
 });
+
+let resetToken = null;
+
+$("#form-newpass").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const password = form.password.value;
+    if (password.length < 8) return formMessage(form, "Hasło musi mieć co najmniej 8 znaków.", "err");
+    if (password !== form.password2.value) return formMessage(form, "Hasła się różnią.", "err");
+
+    const data = await send(form, "/auth/reset", { token: resetToken, password }, "hasło zmienia się na stronie online.").catch(() => null);
+    if (!data) return;
+    formMessage(form, esc(data.message), "ok");
+    form.reset();
+    setTimeout(() => setModalTab("login"), 1500);
+});
+
+$("#form-account").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    await api("/auth/logout", {}).catch(() => {});
+    setUser(null);
+    closeModal();
+});
+
+const ROLES = { entry: "Entry", support: "Support", awp: "AWP", igl: "IGL", flex: "Flex" };
+
+const ago = (date) => {
+    const hours = Math.max(1, Math.round((Date.now() - new Date(date)) / 3600000));
+    if (hours < 24) return `${hours} godz. temu`;
+    const days = Math.round(hours / 24);
+    return days === 1 ? "1 dzień temu" : `${days} dni temu`;
+};
+
+const timeTags = (text) => ["wieczory", "weekendy", "noce"].filter((key) => (text || "").toLowerCase().includes(key.slice(0, 4)));
+const levelClass = (lvl) => (lvl >= 8 ? "lvl-high" : lvl >= 4 ? "lvl-mid" : "");
+const capital = (text) => (text ? text[0].toUpperCase() + text.slice(1) : "");
+
+const adCard = (ad) => {
+    const team = ad.type === "lfm";
+    const who = team ? ad.team_name : ad.nick;
+    return `<article class="ad reveal" data-role="${esc(ad.role)}" data-level="${ad.faceit_level || 1}" data-time="${timeTags(ad.availability).join(" ")}">
+        <div class="ad-top">
+            <span class="badge ${team ? "badge-lfm" : "badge-lfc"}">${team ? "Szuka gracza" : "Szuka drużyny"}</span>
+            <span class="time">${ago(ad.created_at)}</span>
+        </div>
+        <div class="ad-who">
+            <span class="avatar ${team ? "" : "avatar-player"}">${esc(team ? ad.team_tag : ad.nick[0])}</span>
+            <div>
+                <h3>${esc(who)}</h3>
+                <p class="ad-sub">${team ? `kapitan ${esc(ad.captain)}, skład ${ad.members} / 5` : esc(ad.faceit_nick || "bez konta FACEIT")}</p>
+            </div>
+        </div>
+        <p class="ad-text">${esc(ad.description)}</p>
+        <ul class="chips">
+            <li>${ROLES[ad.role] || "Dowolna rola"}</li>
+            ${ad.faceit_level ? `<li><span class="lvl ${levelClass(ad.faceit_level)}">${ad.faceit_level}${team ? "+" : ""}</span>FACEIT</li>` : ""}
+            ${ad.availability ? `<li>${esc(capital(ad.availability))}</li>` : ""}
+        </ul>
+        <button type="button" class="btn btn-full" data-modal="login" data-note="Zaloguj się, żeby napisać do: ${esc(who)}.">Napisz</button>
+    </article>`;
+};
+
+const loadData = async () => {
+    if (!(await backend)) return;
+
+    const [tournaments, adList, me] = await Promise.allSettled([api("/tournaments"), api("/ads"), api("/auth/me")]);
+
+    if (tournaments.status === "fulfilled" && tournaments.value.tournaments.length) {
+        const keep = current.name;
+        TEAMS = tournaments.value.teams;
+        TOURNAMENTS = tournaments.value.tournaments;
+        selectTournament(keep);
+    }
+
+    if (adList.status === "fulfilled") {
+        $("#ads").innerHTML = adList.value.ads.map(adCard).join("");
+        ads = $$(".ad");
+        observeReveal($("#ads"));
+        applyFilters();
+    }
+
+    if (me.status === "fulfilled") setUser(me.value.user);
+
+    const params = new URLSearchParams(location.search);
+    if (params.has("reset")) {
+        resetToken = params.get("reset");
+        openModal("newpass");
+    } else if (params.get("verified") === "1" && currentUser) {
+        openModal("account");
+        formMessage($("#form-account"), "Mail potwierdzony, konto jest aktywne. Witaj w CGP!", "ok");
+    } else if (params.get("verified") === "0") {
+        openModal("login");
+        formMessage($("#form-login"), "Ten link aktywacyjny wygasł albo był już użyty. Zaloguj się, a wyślemy nowy.", "err");
+    }
+    if (params.size) history.replaceState(null, "", location.pathname + location.hash);
+};
+
+loadData();
