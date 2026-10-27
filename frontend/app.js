@@ -40,17 +40,46 @@ $$("a", nav).forEach((link) => link.addEventListener("click", () => {
 }));
 
 const spyLinks = $$("[data-spy]");
+const ink = $("#nav-ink");
+let hovered = null;
+
+const moveInk = () => {
+    const target = hovered || $(".nav a.active");
+    ink.classList.toggle("on", Boolean(target));
+    if (!target) return;
+    ink.style.width = `${target.offsetWidth - 20}px`;
+    ink.style.transform = `translateX(${target.offsetLeft + 10}px)`;
+};
+
+spyLinks.forEach((link, i) => {
+    link.style.setProperty("--i", i);
+    link.addEventListener("pointerenter", () => {
+        hovered = link;
+        moveInk();
+    });
+});
+
+nav.addEventListener("pointerleave", () => {
+    hovered = null;
+    moveInk();
+});
+
+window.addEventListener("resize", moveInk);
+document.fonts?.ready.then(moveInk);
+
 const spyObserver = new IntersectionObserver((entries) => {
     entries.forEach((entry) => {
         if (!entry.isIntersecting) return;
         spyLinks.forEach((link) => link.classList.toggle("active", link.dataset.spy === entry.target.id));
     });
+    moveInk();
 }, { rootMargin: "-45% 0px -50% 0px" });
 
 spyLinks.forEach((link) => spyObserver.observe(document.getElementById(link.dataset.spy)));
 
 new IntersectionObserver(([entry]) => {
     if (entry.isIntersecting) spyLinks.forEach((link) => link.classList.remove("active"));
+    moveInk();
 }, { rootMargin: "-45% 0px -50% 0px" }).observe($("#top"));
 
 const revealObserver = new IntersectionObserver((entries) => {
@@ -687,6 +716,7 @@ faceitForm.addEventListener("submit", async (e) => {
     renderInfo();
     renderBracket();
     renderPanel();
+    renderRanking();
 
     const flashed = $(`.round:nth-child(${spot.r + 2}) [data-team="${winner}"]`, bracket);
     if (flashed) flashed.classList.add("flash");
@@ -706,6 +736,7 @@ const TITLES = {
     reset: "Zapomniane hasło",
     newpass: "Nowe hasło",
     account: "Twoje konto",
+    ad: "Nowe ogłoszenie",
 };
 
 const setModalTab = (name) => {
@@ -715,7 +746,7 @@ const setModalTab = (name) => {
         $(".form-msg", form).textContent = "";
         $(".form-msg", form).className = "form-msg";
     });
-    $(".modal-tabs", modal).hidden = name === "account" || name === "newpass";
+    $(".modal-tabs", modal).hidden = ["account", "newpass", "ad"].includes(name);
     $("#modal-title").textContent = TITLES[name];
 };
 
@@ -734,6 +765,11 @@ const openModal = (name, note) => {
         name = "account";
         note = note ? "Jesteś zalogowany. Ta funkcja wejdzie w kolejnym etapie projektu." : "";
     }
+    if (!currentUser && name === "ad") {
+        name = "login";
+        note = "Zaloguj się, żeby dodać ogłoszenie. Nie masz konta? Rejestracja zajmuje minutę.";
+    }
+    if (name === "ad") prepareAdForm();
     setModalTab(name);
     modalNote.hidden = !note;
     modalNote.textContent = note || "";
@@ -765,8 +801,9 @@ const formMessage = (form, html, type) => {
     msg.className = `form-msg ${type}`;
 };
 
-const api = async (path, body) => {
-    const options = body === undefined ? {} : { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) };
+const api = async (path, body, method = body === undefined ? "GET" : "POST") => {
+    const options = { method };
+    if (body !== undefined) Object.assign(options, { headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const res = await fetch(`/api${path}`, options);
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw Object.assign(new Error(data.error || "Serwer nie odpowiada. Spróbuj za chwilę."), { data });
@@ -806,7 +843,21 @@ const setUser = (user) => {
     registerButton.hidden = Boolean(user);
     $("#account-nick").textContent = user?.nick || "";
     $("#account-email").textContent = user?.email || "";
+    document.dispatchEvent(new CustomEvent("cgp:user"));
 };
+
+const toasts = $("#toasts");
+
+const toast = (text, type = "ok") => {
+    const el = document.createElement("div");
+    el.className = `toast toast-${type}`;
+    el.textContent = text;
+    toasts.append(el);
+    setTimeout(() => el.classList.add("out"), 3200);
+    setTimeout(() => el.remove(), 3600);
+};
+
+const refreshUser = () => api("/auth/me").then((data) => setUser(data.user)).catch(() => {});
 
 $("#form-login").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -822,6 +873,8 @@ $("#form-login").addEventListener("submit", async (e) => {
         formMessage(form, `Cześć <b>${esc(data.user.nick)}</b>, jesteś zalogowany.`, "ok");
         form.reset();
         setTimeout(closeModal, 900);
+        refreshUser();
+        loadAds().catch(() => {});
     } catch (err) {
         if (err.data?.unverified) {
             formMessage(form, `${esc(err.message)} <button type="button" class="link-btn" data-resend="${esc(err.data.unverified)}">Wyślij link ponownie</button>`, "err");
@@ -887,6 +940,41 @@ $("#form-account").addEventListener("submit", async (e) => {
     await api("/auth/logout", {}).catch(() => {});
     setUser(null);
     closeModal();
+    toast("Wylogowano. Do zobaczenia!");
+    loadAds().catch(() => {});
+});
+
+const adForm = $("#form-ad");
+
+const prepareAdForm = () => {
+    const team = currentUser?.team;
+    const lfm = $("input[value=lfm]", adForm);
+    lfm.disabled = !team;
+    if (!team) $("input[value=lfc]", adForm).checked = true;
+    $("#ad-hint").textContent = team
+        ? `Jako kapitan ${team.name} możesz też szukać gracza do składu. Ogłoszenie wisi 7 dni.`
+        : "Szukać gracza do składu może tylko kapitan drużyny. Ogłoszenie wisi 7 dni, naraz możesz mieć 3.";
+};
+
+adForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const f = adForm.elements;
+    const body = {
+        type: f.type.value,
+        role: f.role.value,
+        level: Number(f.level.value),
+        availability: f.availability.value.trim(),
+        description: f.description.value.trim(),
+    };
+    if (body.description.length < 10) return formMessage(adForm, "Opis musi mieć co najmniej 10 znaków.", "err");
+
+    const data = await send(adForm, "/ads", body, "ogłoszenie trafia do bazy na stronie online.").catch(() => null);
+    if (!data) return;
+    adForm.reset();
+    closeModal();
+    await loadAds().catch(() => {});
+    toast("Ogłoszenie wisi na tablicy. Powodzenia w szukaniu!");
+    $("#lfg").scrollIntoView({ behavior: "smooth" });
 });
 
 const ROLES = { entry: "Entry", support: "Support", awp: "AWP", igl: "IGL", flex: "Flex" };
@@ -923,30 +1011,153 @@ const adCard = (ad) => {
             ${ad.faceit_level ? `<li><span class="lvl ${levelClass(ad.faceit_level)}">${ad.faceit_level}${team ? "+" : ""}</span>FACEIT</li>` : ""}
             ${ad.availability ? `<li>${esc(capital(ad.availability))}</li>` : ""}
         </ul>
-        <button type="button" class="btn btn-full" data-modal="login" data-note="Zaloguj się, żeby napisać do: ${esc(who)}.">Napisz</button>
+        ${ad.mine
+            ? `<button type="button" class="btn btn-full btn-ghost" data-close-ad="${ad.id}">Zamknij ogłoszenie</button>`
+            : `<button type="button" class="btn btn-full" data-modal="login" data-note="Zaloguj się, żeby napisać do: ${esc(who)}.">Napisz</button>`}
     </article>`;
 };
+
+const loadAds = async () => {
+    const { ads: list } = await api("/ads");
+    $("#ads").innerHTML = list.map(adCard).join("");
+    ads = $$(".ad");
+    observeReveal($("#ads"));
+    applyFilters();
+    return list;
+};
+
+$("#ads").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-close-ad]");
+    if (!btn) return;
+    if (!btn.classList.contains("confirm")) {
+        btn.classList.add("confirm");
+        btn.textContent = "Kliknij jeszcze raz, żeby zamknąć";
+        setTimeout(() => {
+            btn.classList.remove("confirm");
+            btn.textContent = "Zamknij ogłoszenie";
+        }, 3000);
+        return;
+    }
+    btn.disabled = true;
+    try {
+        await api(`/ads/${btn.dataset.closeAd}`, undefined, "DELETE");
+        await loadAds();
+        toast("Ogłoszenie zamknięte, znika z listy.");
+    } catch (err) {
+        toast(err.message, "err");
+        btn.disabled = false;
+    }
+});
+
+const matchOrder = (time) => {
+    const [d, m, h, min] = String(time || "").match(/\d+/g)?.map(Number) || [];
+    return (m || 0) * 1e6 + (d || 0) * 1e4 + (h || 0) * 100 + (min || 0);
+};
+
+const finishedMatches = () => TOURNAMENTS
+    .flatMap((t) => (t.rounds || []).flat().map((m) => ({ ...m, tournament: t.name })))
+    .filter((m) => m.state === "done" && m.a && m.b)
+    .sort((x, y) => matchOrder(x.time) - matchOrder(y.time));
+
+const renderRanking = () => {
+    const table = Object.fromEntries(Object.keys(TEAMS).map((tag) => [tag, { tag, played: 0, wins: 0, won: 0, lost: 0, form: [], titles: 0 }]));
+    const maps = {};
+    const matches = finishedMatches();
+
+    TOURNAMENTS.forEach((t) => {
+        if (t.status === "done" && table[t.champion]) table[t.champion].titles++;
+    });
+    matches.forEach((m) => {
+        maps[m.map] = (maps[m.map] || 0) + 1;
+        [[m.a, m.sa, m.sb], [m.b, m.sb, m.sa]].forEach(([tag, own, opp]) => {
+            const row = table[tag];
+            if (!row) return;
+            row.played++;
+            row.won += own;
+            row.lost += opp;
+            row.wins += own > opp ? 1 : 0;
+            row.form.push(own > opp ? "W" : "P");
+        });
+    });
+
+    const rows = Object.values(table).sort((a, b) => b.wins - a.wins || (b.won - b.lost) - (a.won - a.lost) || b.played - a.played || TEAMS[a.tag].localeCompare(TEAMS[b.tag]));
+    $("#r-body").innerHTML = rows.map((r, i) => {
+        const diff = r.won - r.lost;
+        return `<tr class="${i < 3 && r.played ? `r-top r-top-${i + 1}` : ""}" style="--n: ${i}">
+            <td class="r-pos">${i + 1}</td>
+            <td><span class="r-team"><span class="avatar">${esc(r.tag)}</span><b>${esc(TEAMS[r.tag])}</b></span></td>
+            <td>${r.played}</td>
+            <td class="r-w">${r.wins}</td>
+            <td>${r.played - r.wins}</td>
+            <td class="${diff > 0 ? "plus" : diff < 0 ? "minus" : ""}">${r.won}:${r.lost} <small>${diff > 0 ? "+" : ""}${diff}</small></td>
+            <td><span class="r-form">${r.form.slice(-5).map((f) => `<i class="f-${f}">${f}</i>`).join("") || "<em>brak meczów</em>"}</span></td>
+            <td class="r-titles ${r.titles ? "won" : ""}">${r.titles ? `${trophy}${r.titles}` : "0"}</td>
+        </tr>`;
+    }).join("");
+
+    const top = Math.max(1, ...Object.values(maps));
+    $("#r-maps").innerHTML = Object.entries(maps).sort((a, b) => b[1] - a[1]).map(([map, n]) => `<li>
+        <span>${esc(map)}</span><b>${n}</b><i style="--w: ${(n / top) * 100}%"></i>
+    </li>`).join("") || "<li>Jeszcze nic nie zagrano.</li>";
+
+    const facts = [];
+    if (matches.length) {
+        const blowout = matches.reduce((a, b) => (Math.abs(b.sa - b.sb) > Math.abs(a.sa - a.sb) ? b : a));
+        facts.push(`Najwyższa wygrana: <b>${esc(TEAMS[blowout.a])}</b> ${blowout.sa}:${blowout.sb} <b>${esc(TEAMS[blowout.b])}</b> na ${esc(blowout.map)}`);
+        const overtime = matches.filter((m) => Math.max(m.sa, m.sb) > 13);
+        if (overtime.length) facts.push(`Dogrywki: ${overtime.map((m) => `<b>${esc(m.a)}</b> ${m.sa}:${m.sb} <b>${esc(m.b)}</b>`).join(", ")}`);
+        const rounds = matches.reduce((sum, m) => sum + m.sa + m.sb, 0);
+        facts.push(`Rozegrane mecze: <b>${matches.length}</b>, rundy: <b>${rounds}</b>, średnio <b>${(rounds / matches.length).toFixed(1)}</b> na mecz`);
+        const streak = (form) => Math.max(...form.join("").split("P").map((s) => s.length));
+        const hot = rows.filter((r) => r.wins).sort((a, b) => streak(b.form) - streak(a.form))[0];
+        if (hot) facts.push(`Najdłuższa seria wygranych: <b>${esc(TEAMS[hot.tag])}</b>, ${streak(hot.form)} z rzędu`);
+    }
+    $("#r-facts").innerHTML = facts.map((f) => `<li>${f}</li>`).join("") || "<li>Ciekawostki pojawią się po pierwszych meczach.</li>";
+};
+
+const placesLeft = (n) => {
+    if (n === 1) return "zostało 1 miejsce";
+    if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return `zostały ${n} miejsca`;
+    return `zostało ${n} miejsc`;
+};
+
+const renderTicker = (adList = []) => {
+    const team = (tag) => `<b>${esc(TEAMS[tag] || tag)}</b>`;
+    const items = [];
+    TOURNAMENTS.forEach((t) => {
+        if (t.status === "live") (t.rounds || []).flat().forEach((m) => {
+            if (m.state === "done") items.push(`${team(m.a)} ${m.sa}:${m.sb} ${team(m.b)}`);
+            else if (m.a && m.b && m.state === "pending") items.push(`${team(m.a)} vs ${team(m.b)} czeka na wynik`);
+        });
+        if (t.status === "open") items.push(`<b>${esc(t.name)}</b> ${placesLeft(t.slots - (t.registered || []).length)}`);
+        if (t.status === "done" && t.champion) items.push(`${team(t.champion)} wygrywa ${esc(t.name)}`);
+    });
+    adList.filter((ad) => ad.type === "lfm").slice(0, 2).forEach((ad) => {
+        items.push(`<b>${esc(ad.team_name)}</b> szuka ${esc(ROLES[ad.role] || "gracza").toLowerCase()}, FACEIT ${ad.faceit_level}+`);
+    });
+    if (!items.length) return;
+    const group = (hidden) => `<div class="ticker-group"${hidden ? ' aria-hidden="true"' : ""}><span class="ticker-live">Na żywo</span>${items.map((i) => `<span>${i}</span><i></i>`).join("")}</div>`;
+    $("#ticker-track").innerHTML = group(false) + group(true);
+};
+
+renderRanking();
 
 const loadData = async () => {
     if (!(await backend)) return;
 
-    const [tournaments, adList, me] = await Promise.allSettled([api("/tournaments"), api("/ads"), api("/auth/me")]);
+    const [tournaments, me] = await Promise.allSettled([api("/tournaments"), api("/auth/me")]);
+    if (me.status === "fulfilled") setUser(me.value.user);
 
     if (tournaments.status === "fulfilled" && tournaments.value.tournaments.length) {
         const keep = current.name;
         TEAMS = tournaments.value.teams;
         TOURNAMENTS = tournaments.value.tournaments;
         selectTournament(keep);
+        renderRanking();
     }
 
-    if (adList.status === "fulfilled") {
-        $("#ads").innerHTML = adList.value.ads.map(adCard).join("");
-        ads = $$(".ad");
-        observeReveal($("#ads"));
-        applyFilters();
-    }
-
-    if (me.status === "fulfilled") setUser(me.value.user);
+    const adList = await loadAds().catch(() => []);
+    renderTicker(adList);
 
     const params = new URLSearchParams(location.search);
     if (params.has("reset")) {

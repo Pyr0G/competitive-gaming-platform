@@ -23,8 +23,11 @@
             <nav class="nav" id="nav">
                 <a href="#jak" data-spy="jak"><span>01</span>Jak to działa</a>
                 <a href="#turnieje" data-spy="turnieje"><span>02</span>Turnieje</a>
-                <a href="#lfg" data-spy="lfg"><span>03</span>Szukam drużyny</a>
+                <a href="#lfg" data-spy="lfg"><span>03</span>Ogłoszenia</a>
                 <a href="#drabinka" data-spy="drabinka"><span>04</span>Drabinka</a>
+                <a href="#ranking" data-spy="ranking"><span>05</span>Ranking</a>
+                <a href="#veto" data-spy="veto"><span>06</span>Veto map</a>
+                <span class="nav-ink" id="nav-ink"></span>
             </nav>
             <div class="auth">
                 <button type="button" class="btn-login" data-modal="login">
@@ -80,7 +83,7 @@
         </section>
 
         <div class="ticker" aria-label="Na żywo">
-            <div class="ticker-track">
+            <div class="ticker-track" id="ticker-track">
                 <div class="ticker-group">
                     <span class="ticker-live">Na żywo</span>
                     <span><b>Ekipa z Akademika</b> 13:8 <b>Cebulowe Smoki</b></span>
@@ -381,7 +384,7 @@
                         </select>
                     </label>
                     <p class="filters-count" id="ads-count"></p>
-                    <button type="button" class="btn" data-modal="register" data-note="Żeby dodać ogłoszenie, załóż konto albo się zaloguj.">Dodaj ogłoszenie</button>
+                    <button type="button" class="btn" data-modal="ad">Dodaj ogłoszenie</button>
                 </form>
                 <div class="ads" id="ads">
                     <article class="ad reveal" data-role="entry" data-level="6" data-time="wieczory">
@@ -500,6 +503,75 @@
             </div>
         </section>
 
+        <section id="ranking" class="section">
+            <div class="container">
+                <div class="section-head reveal">
+                    <span class="section-num">05</span>
+                    <h2>Ranking drużyn</h2>
+                    <p>Liczy się sam z wyników wszystkich turniejów. Wygrane, bilans rund i forma z ostatnich meczów.</p>
+                </div>
+                <div class="r-wrap reveal">
+                    <div class="r-main">
+                        <table class="r-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Drużyna</th>
+                                    <th title="Rozegrane mecze">M</th>
+                                    <th title="Wygrane">W</th>
+                                    <th title="Porażki">P</th>
+                                    <th>Rundy</th>
+                                    <th>Forma</th>
+                                    <th title="Wygrane turnieje">Tytuły</th>
+                                </tr>
+                            </thead>
+                            <tbody id="r-body"></tbody>
+                        </table>
+                    </div>
+                    <aside class="r-side">
+                        <div class="r-box">
+                            <span class="panel-label">Mapy w turniejach</span>
+                            <ul class="r-maps" id="r-maps"></ul>
+                        </div>
+                        <div class="r-box">
+                            <span class="panel-label">Ciekawostki</span>
+                            <ul class="r-facts" id="r-facts"></ul>
+                        </div>
+                    </aside>
+                </div>
+            </div>
+        </section>
+
+        <section id="veto" class="section section-dark section-veto">
+            <div class="container">
+                <div class="section-head reveal">
+                    <span class="section-num">06</span>
+                    <h2>Veto map</h2>
+                    <p>Zanim padnie pierwszy strzał, kapitanowie banują i wybierają mapy. Wybierz dwie drużyny i przećwicz to, klikając w mapy.</p>
+                </div>
+                <div class="veto reveal">
+                    <div class="veto-opts">
+                        <select id="veto-a" aria-label="Drużyna A"></select>
+                        <span>vs</span>
+                        <select id="veto-b" aria-label="Drużyna B"></select>
+                        <div class="tabs veto-format" id="veto-format">
+                            <button type="button" class="tab active" data-format="bo1">BO1</button>
+                            <button type="button" class="tab" data-format="bo3">BO3</button>
+                        </div>
+                    </div>
+                    <p class="veto-turn" id="veto-turn"></p>
+                    <div class="veto-maps" id="veto-maps"></div>
+                    <div class="veto-foot">
+                        <ol class="veto-log" id="veto-log"></ol>
+                        <div class="veto-actions">
+                            <button type="button" class="btn btn-ghost" id="veto-auto">Dokończ losowo</button>
+                            <button type="button" class="btn btn-ghost" id="veto-reset">Od nowa</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
         <section class="cta">
             <div class="cta-bg"></div>
             <div class="container cta-inner reveal">
@@ -523,6 +595,8 @@
                     <a href="#turnieje">Turnieje</a>
                     <a href="#lfg">Szukam drużyny</a>
                     <a href="#drabinka">Drabinka</a>
+                    <a href="#ranking">Ranking</a>
+                    <a href="#veto">Veto map</a>
                 </div>
                 <div class="footer-col">
                     <h4>Projekt</h4>
@@ -588,6 +662,34 @@
                 <button type="submit" class="btn btn-full btn-glow">Zapisz hasło</button>
                 <p class="form-msg" aria-live="polite"></p>
             </form>
+            <form class="modal-form" id="form-ad" data-form="ad" novalidate hidden>
+                <div class="picks" role="radiogroup" aria-label="Typ ogłoszenia">
+                    <label class="pick"><input type="radio" name="type" value="lfc" checked><span>Szukam drużyny</span></label>
+                    <label class="pick"><input type="radio" name="type" value="lfm"><span>Szukam gracza</span></label>
+                </div>
+                <div class="form-row">
+                    <label>Rola
+                        <select name="role">
+                            <option value="entry">Entry</option>
+                            <option value="support">Support</option>
+                            <option value="awp">AWP</option>
+                            <option value="igl">IGL</option>
+                            <option value="flex">Flex</option>
+                        </select>
+                    </label>
+                    <label>Poziom FACEIT
+                        <select name="level">
+                            <option>1</option><option>2</option><option>3</option><option>4</option><option selected>5</option>
+                            <option>6</option><option>7</option><option>8</option><option>9</option><option>10</option>
+                        </select>
+                    </label>
+                </div>
+                <label>Kiedy grasz<input name="availability" maxlength="80" placeholder="np. wieczory po 19, weekendy"></label>
+                <label>Opis<textarea name="description" rows="4" maxlength="500" placeholder="Parę słów o sobie albo o składzie, minimum 10 znaków"></textarea></label>
+                <p class="modal-hint" id="ad-hint">Ogłoszenie wisi 7 dni. Naraz możesz mieć maksymalnie 3.</p>
+                <button type="submit" class="btn btn-full btn-glow">Wrzuć ogłoszenie</button>
+                <p class="form-msg" aria-live="polite"></p>
+            </form>
             <form class="modal-form" id="form-account" data-form="account" novalidate hidden>
                 <p class="modal-hint">Jesteś zalogowany jako <b id="account-nick"></b> (<span id="account-email"></span>).</p>
                 <button type="submit" class="btn btn-full">Wyloguj</button>
@@ -597,7 +699,9 @@
     </div>
 
     <div class="hits" id="hits" aria-hidden="true"></div>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
 
     <script src="app.js"></script>
+    <script src="veto.js"></script>
 </body>
 </html>
