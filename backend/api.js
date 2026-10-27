@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { query } from "./db.js";
+import { limit, requireUser } from "./auth.js";
 
 export const api = Router();
 
@@ -80,8 +81,8 @@ api.get("/tournaments", async (req, res) => {
 
 api.get("/ads", async (req, res) => {
     const { rows } = await query(
-        `SELECT a.id, a.type, a.faceit_level, a.role, a.availability, a.description, a.created_at,
-                u.nick, u.faceit_nick, t.name AS team_name, t.tag AS team_tag, cap.nick AS captain,
+        `SELECT a.id::int, a.type, a.faceit_level, a.role, a.availability, a.description, a.created_at,
+                a.author_id = $1 AS mine, u.nick, u.faceit_nick, t.name AS team_name, t.tag AS team_tag, cap.nick AS captain,
                 (SELECT COUNT(*) FROM team_members tm WHERE tm.team_id = t.id AND NOT tm.is_substitute)::int AS members
          FROM advertisements a
          JOIN users u ON u.id = a.author_id
@@ -89,6 +90,50 @@ api.get("/ads", async (req, res) => {
          LEFT JOIN users cap ON cap.id = t.captain_id
          WHERE a.is_closed = FALSE AND a.expires_at > NOW()
          ORDER BY a.created_at DESC`,
+        [req.userId || 0],
     );
     res.json({ ads: rows });
+});
+
+const ROLES = ["entry", "support", "awp", "igl", "flex"];
+
+api.post("/ads", requireUser, limit(10, 30), async (req, res) => {
+    const type = req.body.type === "lfm" ? "lfm" : "lfc";
+    const role = ROLES.includes(req.body.role) ? req.body.role : null;
+    const level = Number(req.body.level);
+    const availability = String(req.body.availability || "").trim().slice(0, 80) || null;
+    const description = String(req.body.description || "").trim();
+
+    if (!role) return res.status(400).json({ error: "Wybierz rolę." });
+    if (!Number.isInteger(level) || level < 1 || level > 10) return res.status(400).json({ error: "Poziom FACEIT musi być od 1 do 10." });
+    if (description.length < 10 || description.length > 500) return res.status(400).json({ error: "Opis musi mieć od 10 do 500 znaków." });
+
+    let teamId = null;
+    if (type === "lfm") {
+        const { rows } = await query("SELECT id FROM teams WHERE captain_id = $1 LIMIT 1", [req.userId]);
+        if (!rows.length) return res.status(400).json({ error: "Szukać gracza do składu może tylko kapitan drużyny." });
+        teamId = rows[0].id;
+    }
+
+    const { rows: active } = await query(
+        "SELECT COUNT(*)::int AS n FROM advertisements WHERE author_id = $1 AND is_closed = FALSE AND expires_at > NOW()",
+        [req.userId],
+    );
+    if (active[0].n >= 3) return res.status(400).json({ error: "Możesz mieć naraz maksymalnie 3 aktywne ogłoszenia." });
+
+    const { rows } = await query(
+        `INSERT INTO advertisements (author_id, team_id, type, faceit_level, role, availability, description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id::int`,
+        [req.userId, teamId, type, level, role, availability, description],
+    );
+    res.status(201).json({ id: rows[0].id });
+});
+
+api.delete("/ads/:id", requireUser, async (req, res) => {
+    const { rowCount } = await query(
+        "UPDATE advertisements SET is_closed = TRUE WHERE id = $1 AND author_id = $2 AND is_closed = FALSE",
+        [Number(req.params.id) || 0, req.userId],
+    );
+    if (!rowCount) return res.status(404).json({ error: "Możesz zamknąć tylko swoje ogłoszenie." });
+    res.json({ ok: true });
 });

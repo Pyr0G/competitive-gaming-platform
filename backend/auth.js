@@ -47,6 +47,11 @@ export const readSession = (req, res, next) => {
     next();
 };
 
+export const requireUser = (req, res, next) => {
+    if (!req.userId) return res.status(401).json({ error: "Zaloguj się, żeby to zrobić." });
+    next();
+};
+
 const setSession = (res, userId) => {
     res.cookie(COOKIE, jwt.sign({ id: userId }, config.jwtSecret, { expiresIn: "7d" }), {
         httpOnly: true,
@@ -142,8 +147,13 @@ auth.post("/logout", (req, res) => {
 
 auth.get("/me", async (req, res) => {
     if (!req.userId) return res.json({ user: null });
-    const { rows } = await query("SELECT id, nick, email FROM users WHERE id = $1", [req.userId]);
-    res.json({ user: rows[0] ? publicUser(rows[0]) : null });
+    const { rows } = await query(
+        `SELECT u.id, u.nick, u.email, t.name AS team_name, t.tag AS team_tag
+         FROM users u LEFT JOIN teams t ON t.captain_id = u.id WHERE u.id = $1 LIMIT 1`,
+        [req.userId],
+    );
+    const u = rows[0];
+    res.json({ user: u ? { ...publicUser(u), team: u.team_tag ? { name: u.team_name, tag: u.team_tag } : null } : null });
 });
 
 auth.post("/forgot", limit(5, 15), async (req, res) => {
