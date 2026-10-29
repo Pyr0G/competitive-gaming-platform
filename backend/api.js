@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { query } from "./db.js";
-import { limit, requireUser } from "./auth.js";
+import { requireUser } from "./auth.js";
+import { limit } from "./resource-limits.js";
 
 export const api = Router();
 
@@ -97,7 +98,7 @@ api.get("/ads", async (req, res) => {
 
 const ROLES = ["entry", "support", "awp", "igl", "flex"];
 
-api.post("/ads", requireUser, limit(10, 30), async (req, res) => {
+api.post("/ads", requireUser, limit("ads", 10, 30), async (req, res) => {
     const type = req.body.type === "lfm" ? "lfm" : "lfc";
     const role = ROLES.includes(req.body.role) ? req.body.role : null;
     const level = Number(req.body.level);

@@ -6,6 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "test": "node --experimental-test-module-mocks --test",
     "dev": "node --env-file=../.env --watch server.js",
     "db:reset": "node --env-file-if-exists=../.env reset-db.js"
   },
