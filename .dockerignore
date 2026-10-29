@@ -1,0 +1,11 @@
+**
+!backend/
+!backend/*.js
+backend/*.test.js
+!backend/package.json
+!backend/package-lock.json
+!frontend/
+!frontend/**
+!database/
+!database/schema.sql
+!database/seed.sql

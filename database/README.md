@@ -190,7 +190,9 @@ Rzeczy typu „maksymalnie 5 + 2 graczy” albo „tylko kapitan może zapisać 
 docker compose up -d
 ```
 
-Baza wstanie na porcie 5432 razem z przykładowymi danymi.
+Baza wstanie tylko na `127.0.0.1:5432` razem z przykładowymi danymi. To konfiguracja lokalna.
+
+Na R740 użyj osobnego pliku `docker-compose.production.yml` zgodnie z [DEPLOYMENT.md](../DEPLOYMENT.md). Produkcyjna baza nie wystawia portu na hoście i ma osobny wolumen `production_db_data`. Wczytuje `schema.sql` bez `seed.sql`, więc nie zakłada testowych kont. `init-app-role.sh` tworzy konto `cgp_app` z dostępem do tabel i sekwencji, bez uprawnień właściciela bazy, tworzenia obiektów i uruchamiania programów systemowych przez rolę superużytkownika. Przy zmianie schematu właściciel musi nadać odpowiednie uprawnienia do nowych tabel i sekwencji.
 
 ## Przykładowe zapytania
 
