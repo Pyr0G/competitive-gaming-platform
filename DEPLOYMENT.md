@@ -12,6 +12,8 @@ Kontener aplikacji działa jako użytkownik `node`, ma system plików tylko do o
 
 ## Przygotowanie
 
+Połączenia do zdalnego PostgreSQL zawsze sprawdzają certyfikat i nazwę serwera. Użyj `sslmode=verify-full`; `sslmode=require` też zachowuje pełną weryfikację. Własne CA można wskazać przez `sslrootcert`. Tryby `no-verify`, `prefer`, `verify-ca` i zgodność libpq są odrzucane. Brak TLS jest dozwolony tylko dla `localhost`, `127.0.0.1`, `::1` oraz jawnego `sslmode=disable` dla usługi `db` z prywatnej sieci produkcyjnej. Dla loopback bez ustawień TLS zachowany jest lokalny tryb developerski.
+
 1. Zainstaluj aktualne Docker Engine i Compose w przeznaczonej do tego maszynie wirtualnej.
 2. Skopiuj `.env.production.example` do `.env.production`. Ustaw publiczny adres HTTPS, unikalny sekret sesji oraz różne hasła bazy i aplikacji. Użyj losowych ciągów co najmniej 32 znaków. Dla `APP_DB_PASSWORD` użyj cyfr i liter, np. losowego ciągu szesnastkowego, ponieważ hasło jest częścią adresu połączenia.
 3. Ogranicz uprawnienia `.env.production` do administratora, np. `chmod 600 .env.production`. Nigdy nie dodawaj tego pliku do Git. Nie zapisuj wyniku `docker compose config` z sekretami do publicznych logów.
@@ -70,5 +72,7 @@ curl --fail http://127.0.0.1:3000/api/health
 Aktualizacja nie nadaje administratora po nicku. Produkcyjne konto administratora wybierz ręcznie po sprawdzeniu jego właściciela i potwierdzeniu maila, a uprawnienia nadaj jako właściciel bazy po `users.id`. Szczegóły zachowania aktualizacji i kontroli wcześniejszych nadań są w [opisie bazy](database/README.md#aktualizacja-istniejącej-bazy).
 
 ## Testy kodu
+
+Ta wersja zmienia format ciasteczka sesji. Po aktualizacji użytkownicy logują się ponownie. Sesja jest powiązana z aktualnym skrótem hasła przez HMAC, więc udany reset hasła unieważnia wszystkie starsze sesje tego konta, także sesje wydane przez aktywację maila. Reset i aktywacja używają transakcji z blokadą konta; reset zużywa pozostałe linki do odzyskania hasła i aktywacji. Nie wymaga to nowych kolumn ani przebudowy bazy.
 
 W folderze `backend` uruchom `npm test` na Node 22 lub nowszym. Testy korzystają z lokalnych atrap bazy i poczty, bez wysyłania maili i bez połączenia z prawdziwą bazą. Sprawdzają wspólne limity dla różnych zapisów tego samego adresu, pojemność i wygasanie liczników, limit pracy nad hasłami oraz poprawne logowanie i reset hasła.

@@ -4,6 +4,9 @@ import { test } from "node:test";
 import vm from "node:vm";
 
 const source = await readFile(new URL("../frontend/chat.js", import.meta.url), "utf8");
+const appSource = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+const userSource = appSource.slice(appSource.indexOf("const loginButton ="), appSource.indexOf("const toasts ="));
+const sessionSource = appSource.slice(appSource.indexOf("const refreshUser ="), appSource.indexOf('$("#form-login").addEventListener'));
 const flush = () => new Promise(setImmediate);
 const message = (id, content = `message ${id}`, mine = false) => ({ id, content, mine, sent_at: "2026-11-01T12:00:00Z" });
 const thread = (id, messages = []) => ({
@@ -16,7 +19,16 @@ class Element {
     innerHTML = "";
     textContent = "";
     value = "";
+    reason = { value: "" };
     style = {};
+    dataset = {};
+    classes = new Set();
+    classList = {
+        add: (name) => this.classes.add(name),
+        remove: (name) => this.classes.delete(name),
+        contains: (name) => this.classes.has(name),
+        toggle: (name, on) => on ? this.classes.add(name) : this.classes.delete(name),
+    };
     scrollHeight = 100;
     scrollTop = 0;
     clientHeight = 100;
@@ -28,11 +40,17 @@ class Element {
         this.listeners.set(type, handlers);
     }
 
-    async emit(type) {
-        for (const handler of this.listeners.get(type) || []) await handler({ preventDefault() {} });
+    async emit(type, event = {}) {
+        for (const handler of this.listeners.get(type) || []) await handler({ preventDefault() {}, ...event });
+    }
+
+    dispatchEvent(event) {
+        for (const handler of this.listeners.get(event.type) || []) handler(event);
     }
 
     setAttribute() {}
+
+    reset() { this.reason.value = ""; }
 
     querySelector(selector) {
         const id = selector.match(/^\[data-id="(\d+)"\]$/)?.[1];
@@ -54,22 +72,33 @@ const createClient = async () => {
     $("#chat").hidden = true;
     $("#chat-report").hidden = true;
     const document = new Element();
-    document.body = { classList: { add() {}, remove() {} } };
-    const state = { unread: 0, conversations: [], threads: new Map() };
+    document.body = new Element();
+    const window = new Element();
+    const signals = [];
+    const state = { unread: 0, conversations: [], threads: new Map(), sessionUser: { id: 1 } };
     const requests = [];
     const pauses = [];
     const toasts = [];
+    const actions = new Map(["block", "unblock", "report"].map((act) => {
+        const button = new Element();
+        button.dataset = { chatAct: act };
+        return [act, button];
+    }));
     let tick;
     const context = vm.createContext({
-        $, $$: () => [], document, currentUser: { id: 1 }, backend: Promise.resolve(true),
+        $, $$: () => [...actions.values()], document, window, modal: $("#modal"), currentUser: { id: 1 }, backend: Promise.resolve(true),
+        localStorage: { setItem: (...args) => signals.push(args) },
+        CustomEvent: class { constructor(type) { this.type = type; } },
         esc: (value) => String(value).replaceAll("<", "&lt;"),
         toast: (...args) => toasts.push(args), openModal() {},
         setInterval: (handler) => { tick = handler; return 1; },
         api: (path, body) => {
             requests.push({ path, body });
             let data;
-            if (path === "/chat/unread") data = { unread: state.unread };
+            if (path === "/auth/me") data = { user: state.sessionUser };
+            else if (path === "/chat/unread") data = { unread: state.unread };
             else if (path === "/chat") data = { conversations: state.conversations };
+            else if (/^\/chat\/\d+\/(block|report)$/.test(path)) data = { ok: true };
             else {
                 const match = path.match(/^\/chat\/(\d+)(?:\?after=(\d+))?$/);
                 assert.ok(match, `Unexpected request: ${path}`);
@@ -94,10 +123,10 @@ const createClient = async () => {
             });
         },
     });
-    const client = vm.runInContext(`${source}\n;({ openChat, openThread, closeChat, showList, pollChat, refreshUnread });`, context);
+    const client = vm.runInContext(`${userSource}\n${sessionSource}\n${source}\n;({ openChat, openThread, closeChat, showList, pollChat, refreshUnread, setUser, refreshUser, reconcileSession });`, context);
     await flush();
     return {
-        ...client, $, state, requests, context, document, toasts,
+        ...client, $, state, requests, context, document, window, signals, toasts, actions,
         tick: () => tick(),
         pause: (matches) => {
             const pause = { matches, started: false };
@@ -259,4 +288,160 @@ test("slow polling never starts another periodic request in parallel", async () 
     assert.equal(c.requests.length, before);
     delayed.release();
     await first;
+});
+
+test("account changes erase cached inboxes, messages and drafts before a new inbox loads", async () => {
+    const c = await createClient();
+    c.state.conversations = [{ id: 1, nick: "Private player", content: "private preview", unread: 1 }];
+    c.state.threads.set(1, thread(1, [message(1, "private message")]));
+    await c.openChat();
+    await c.openThread(1);
+    c.$("textarea").value = "private draft";
+    c.$("#chat-report").reason.value = "private report";
+    c.context.currentUser = null;
+    await c.document.emit("cgp:user");
+    assert.equal(c.$("#chat-list").innerHTML, "");
+    assert.equal(c.$("#chat-msgs").innerHTML, "");
+    assert.equal(c.$("textarea").value, "");
+    assert.equal(c.$("#chat-report").reason.value, "");
+    assert.equal(c.$("#chat-name").textContent, "");
+    assert.equal(c.$("#chat-status").textContent, "");
+    c.context.currentUser = { id: 2 };
+    await c.document.emit("cgp:user");
+    c.state.conversations = [{ id: 2, nick: "New player", content: "new preview", unread: 0 }];
+    const delayed = c.pause((path) => path === "/chat");
+    const opening = c.openChat();
+    await flush();
+    assert.ok(delayed.started);
+    assert.equal(c.$("#chat-list").hidden, false);
+    assert.doesNotMatch(c.$("#chat-list").innerHTML, /private|Private/);
+    delayed.reject(new Error("inbox failed"));
+    await opening;
+    assert.doesNotMatch(c.$("#chat-list").innerHTML, /private|Private/);
+    await c.showList();
+    assert.match(c.$("#chat-list").innerHTML, /new preview/);
+});
+
+test("same-account refreshes retain the active thread and its draft", async () => {
+    const c = await createClient();
+    c.state.threads.set(1, thread(1, [message(1)]));
+    await c.openChat();
+    await c.openThread(1);
+    c.$("textarea").value = "keep draft";
+    await c.document.emit("cgp:user");
+    assert.equal(c.$("#chat").hidden, false);
+    assert.deepEqual(c.ids(), [1]);
+    assert.equal(c.$("textarea").value, "keep draft");
+});
+
+test("an old inbox response cannot restore private previews after an account switch", async () => {
+    const c = await createClient();
+    c.state.conversations = [{ id: 1, nick: "Private player", content: "private preview", unread: 1 }];
+    const delayed = c.pause((path) => path === "/chat");
+    const opening = c.openChat();
+    await flush();
+    c.context.currentUser = { id: 2 };
+    await c.document.emit("cgp:user");
+    c.state.conversations = [];
+    await c.openChat();
+    delayed.release();
+    await opening;
+    assert.doesNotMatch(c.$("#chat-list").innerHTML, /private|Private/);
+});
+
+test("delayed block and unblock actions cannot reopen a thread after switching accounts", async () => {
+    for (const act of ["block", "unblock"]) {
+        const c = await createClient();
+        c.state.threads.set(1, thread(1));
+        c.state.threads.set(2, thread(2));
+        await c.openChat();
+        await c.openThread(1);
+        const delayed = c.pause((path) => path === "/chat/1/block");
+        const action = c.actions.get(act).emit("click");
+        await flush();
+        c.context.currentUser = { id: 2 };
+        await c.document.emit("cgp:user");
+        await c.openChat();
+        await c.openThread(2);
+        delayed.release();
+        await action;
+        assert.equal(c.$("#chat-name").textContent, "Player 2");
+        assert.deepEqual(c.toasts, []);
+    }
+});
+
+test("a delayed report cannot clear the new account's report draft", async () => {
+    const c = await createClient();
+    c.state.threads.set(1, thread(1));
+    c.state.threads.set(2, thread(2));
+    await c.openChat();
+    await c.openThread(1);
+    c.$("#chat-report").reason.value = "old report reason";
+    const delayed = c.pause((path) => path === "/chat/1/report");
+    const reporting = c.$("#chat-report").emit("submit");
+    await flush();
+    c.context.currentUser = { id: 2 };
+    await c.document.emit("cgp:user");
+    await c.openChat();
+    await c.openThread(2);
+    c.$("#chat-report").reason.value = "new account reason";
+    delayed.release();
+    await reporting;
+    assert.equal(c.$("#chat-report").reason.value, "new account reason");
+    assert.deepEqual(c.toasts, []);
+});
+
+test("an account change in another tab clears private state even if reconciliation fails", async () => {
+    const c = await createClient();
+    c.state.conversations = [{ id: 1, nick: "Private player", content: "private preview", unread: 1 }];
+    c.state.threads.set(1, thread(1, [message(1, "private message")]));
+    await c.openChat();
+    await c.openThread(1);
+    c.$("textarea").value = "private draft";
+    c.state.sessionUser = { id: 2 };
+    const delayed = c.pause((path) => path === "/auth/me");
+    await c.window.emit("storage", { key: "cgp-auth-change" });
+    await flush();
+    assert.ok(delayed.started);
+    assert.equal(c.context.currentUser, null);
+    assert.equal(c.$("#chat-list").innerHTML, "");
+    assert.equal(c.$("#chat-msgs").innerHTML, "");
+    assert.equal(c.$("textarea").value, "");
+    delayed.reject(new Error("session check failed"));
+    await flush();
+    assert.equal(c.context.currentUser, null);
+    assert.equal(c.$("#chat").hidden, true);
+});
+
+test("a resumed tab hides private panels until identity is confirmed and preserves same-user drafts", async () => {
+    const c = await createClient();
+    c.state.threads.set(1, thread(1, [message(1, "private message")]));
+    await c.openChat();
+    await c.openThread(1);
+    c.$("textarea").value = "same-user draft";
+    const delayed = c.pause((path) => path === "/auth/me");
+    const resuming = c.window.emit("focus");
+    await flush();
+    assert.equal(c.document.body.classList.contains("session-check"), true);
+    delayed.release();
+    await resuming;
+    assert.equal(c.document.body.classList.contains("session-check"), false);
+    assert.equal(c.$("textarea").value, "same-user draft");
+    assert.deepEqual(c.ids(), [1]);
+    c.state.sessionUser = { id: 2 };
+    await c.window.emit("focus");
+    assert.equal(c.$("#chat-msgs").innerHTML, "");
+    assert.equal(c.$("textarea").value, "");
+});
+
+test("a delayed session check cannot restore a previous account after a newer login", async () => {
+    const c = await createClient();
+    const delayed = c.pause((path) => path === "/auth/me");
+    const refreshing = c.refreshUser();
+    await flush();
+    c.setUser({ id: 2 }, true);
+    delayed.release();
+    await refreshing;
+    assert.equal(c.context.currentUser.id, 2);
+    assert.equal(c.signals.at(-1)[0], "cgp-auth-change");
 });
