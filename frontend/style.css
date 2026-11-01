@@ -411,13 +411,14 @@ h1, h2, h3, h4 {
     overflow: hidden;
     background: #24151a;
     border-bottom: 1px solid rgba(255, 70, 85, 0.35);
-    max-height: 80px;
-    transition: max-height 0.3s, opacity 0.3s;
+    max-height: var(--notice-content-height, none);
+    transition: opacity 0.3s;
 }
 
 .notice.out {
     max-height: 0;
     opacity: 0;
+    transition: max-height 0.3s, opacity 0.3s;
 }
 
 .notice-inner {
@@ -442,11 +443,14 @@ h1, h2, h3, h4 {
 
 .notice-inner p {
     flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
     color: #f3d7da;
     font-size: 14px;
 }
 
 .notice-x {
+    flex: none;
     width: 32px;
     height: 32px;
     color: var(--text);

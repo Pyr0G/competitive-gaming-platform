@@ -1,10 +1,11 @@
 import { Router } from "express";
 import { query } from "./db.js";
 import { limit, requireUser } from "./auth.js";
+import { createTypingStore } from "./typing-state.js";
 
 export const chat = Router();
 
-const typing = new Map();
+const typing = createTypingStore();
 const pair = (a, b) => (a < b ? [a, b] : [b, a]);
 const peerOf = (row, me) => (Number(row.user_a_id) === me ? Number(row.user_b_id) : Number(row.user_a_id));
 
@@ -55,7 +56,7 @@ chat.get("/", requireUser, async (req, res) => {
     res.json({ conversations: rows });
 });
 
-chat.post("/open", requireUser, limit(20, 10), async (req, res) => {
+chat.post("/open", requireUser, limit("chat:open", 20, 10), async (req, res) => {
     const peer = Number(req.body.userId);
     if (!Number.isInteger(peer) || peer === req.userId) {
         return res.status(400).json({ error: "Wybierz gracza, do którego chcesz napisać." });
@@ -106,13 +107,13 @@ chat.get("/:id", requireUser, async (req, res) => {
             nick: rows[0].nick,
             blocked: flags[0].blocked,
             blocked_by: flags[0].blocked_by,
-            typing: (typing.get(`${id}:${peer}`) || 0) > Date.now(),
+            typing: typing.has(`${id}:${peer}`),
         },
         messages,
     });
 });
 
-chat.post("/:id", requireUser, limit(40, 10), async (req, res) => {
+chat.post("/:id", requireUser, limit("chat:send", 40, 10), async (req, res) => {
     const id = Number(req.params.id);
     const content = String(req.body.content || "").trim();
     if (content.length < 1 || content.length > 1000) {
@@ -142,10 +143,15 @@ chat.post("/:id", requireUser, limit(40, 10), async (req, res) => {
     res.status(201).json({ message: saved[0] });
 });
 
-chat.post("/:id/typing", requireUser, (req, res) => {
+chat.post("/:id/typing", requireUser, limit("chat:typing", 120, 1), async (req, res) => {
     const id = Number(req.params.id);
-    if (!id) return res.status(400).json({ error: "Nie ma takiej rozmowy." });
-    typing.set(`${id}:${req.userId}`, Date.now() + 2500);
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: "Nie ma takiej rozmowy." });
+    const { rows } = await findConv(id, req.userId);
+    if (!rows.length) return res.status(404).json({ error: "Nie ma takiej rozmowy." });
+    if (!typing.set(`${id}:${req.userId}`)) {
+        res.set("Retry-After", "3");
+        return res.status(503).json({ error: "Serwer jest teraz zajęty. Spróbuj za chwilę." });
+    }
     res.json({ ok: true });
 });
 
@@ -169,7 +175,7 @@ chat.delete("/:id/block", requireUser, async (req, res) => {
     res.json({ ok: true });
 });
 
-chat.post("/:id/report", requireUser, limit(8, 60), async (req, res) => {
+chat.post("/:id/report", requireUser, limit("chat:report", 8, 60), async (req, res) => {
     const id = Number(req.params.id);
     const reason = String(req.body.reason || "").trim();
     if (reason.length < 8 || reason.length > 500) {

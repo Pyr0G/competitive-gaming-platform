@@ -32,6 +32,7 @@ const post = (path, body = {}, ip = "192.0.2.1", cookie = "") => fetch(`${origin
 });
 
 test("actual auth and ads routes keep one allowance across route aliases", async () => {
+    queryHandler = async () => ({ rows: [{ is_admin: false, banned_at: null }] });
     const cookie = `cgp_session=${jwt.sign({ id: 1 }, config.jwtSecret)}`;
     const routes = [
         ["register", 10, {}, 400], ["login", 20, {}, 400],
@@ -69,7 +70,7 @@ test("registration, login and reset preserve legitimate password and session beh
     assert.ok(await bcrypt.compare("haslo123", passwordHash));
     const login = await post("/auth/login", { login: user.nick, password: "haslo123" }, ip);
     assert.equal(login.status, 200);
-    assert.deepEqual((await login.json()).user, { id: 1, nick: user.nick, email: user.email });
+    assert.deepEqual((await login.json()).user, { id: 1, nick: user.nick, email: user.email, admin: false });
     assert.match(login.headers.get("set-cookie"), /cgp_session=.*HttpOnly/i);
     assert.equal((await post("/auth/login", { login: user.nick, password: "wrong-password" }, ip)).status, 401);
     assert.equal((await post("/auth/reset", { token: "test-token", password: "new-password" }, ip)).status, 200);
@@ -92,6 +93,9 @@ test("busy password handlers reject reset before consuming its token", async () 
         for (let i = 0; waiting.length < 2 && i < 100; i++) await new Promise((resolve) => setTimeout(resolve, 10));
         assert.equal(waiting.length, 2);
         assert.equal((await post("/auth/reset", { token: "unused", password: "new-password" }, "192.0.2.6")).status, 503);
+        assert.equal((await post("/auth/register", { nick: "tester", email: "tester@example.com", password: "haslo123" }, "192.0.2.7")).status, 503);
+        assert.equal((await post("/auth/login", { login: "three", password: "password" }, "192.0.2.8")).status, 503);
+        assert.equal(waiting.length, 2);
         assert.equal(resets, 0);
     } finally {
         waiting.forEach((resolve) => resolve());
