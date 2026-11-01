@@ -13,8 +13,8 @@ Single service: the backend serves the site and the API from the same origin.
 
 ## How it works
 
-- On start the backend checks the database. An empty database gets `schema.sql` and `seed.sql` only when `AUTO_INIT_DATABASE=true`. Existing databases are not upgraded automatically.
-- Production uses `AUTO_INIT_DATABASE=false`. Before restarting an existing deployment, back up the database and verify restoration, then apply `database/upgrade.sql` manually as the database owner, following [DEPLOYMENT.md](DEPLOYMENT.md#aktualizacja-istniejącej-bazy). This also grants `cgp_app` access to the added tables and sequences. Do not reset the database or remove its volume to upgrade.
+- On start the backend checks the database. An empty database gets `schema.sql` and `seed.sql` only when `AUTO_INIT_DATABASE=true`. Existing databases always get `upgrade.sql` on boot.
+- Production can set `AUTO_INIT_DATABASE=false` so an empty DB fails loudly. Do not reset the database or remove its volume to upgrade.
 - Team ranking is computed in the browser from `GET /api/tournaments`.
 - Map veto is client-only and is not stored.
 - Chat uses short polling. Conversations are 1 to 1. Users can block and report.

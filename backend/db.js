@@ -22,8 +22,11 @@ export const loadSchemaAndSeed = async () => {
 
 export const initDatabase = async () => {
     const { rows } = await query("SELECT to_regclass('public.users') AS users");
-    if (rows[0].users) return false;
-    if (!config.autoInitDatabase) throw new Error("Brak tabel w bazie. Najpierw uruchom inicjalizację bazy jako jej właściciel.");
-    await loadSchemaAndSeed();
-    return true;
+    const created = !rows[0].users;
+    if (created) {
+        if (!config.autoInitDatabase) throw new Error("Brak tabel w bazie. Najpierw uruchom inicjalizację bazy jako jej właściciel.");
+        await loadSchemaAndSeed();
+    }
+    await pool.query(await sqlFile("upgrade.sql"));
+    return created;
 };

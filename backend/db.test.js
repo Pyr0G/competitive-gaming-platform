@@ -17,7 +17,7 @@ test("the production URL disables TLS only for the explicitly configured private
     assert.equal(client.connectionParameters.ssl, false);
 });
 
-test("production startup checks existing tables without attempting schema creation", async () => {
+test("startup upgrades an existing database without recreating tables", async () => {
     const calls = [];
     const query = mock.method(pool, "query", async (sql) => {
         calls.push(sql);
@@ -25,8 +25,9 @@ test("production startup checks existing tables without attempting schema creati
     });
     try {
         assert.equal(await initDatabase(), false);
-        assert.equal(calls.length, 1);
+        assert.equal(calls.length, 2);
         assert.match(calls[0], /SELECT to_regclass/);
+        assert.match(calls[1], /banned_at/);
     } finally {
         query.mock.restore();
     }
@@ -46,7 +47,7 @@ test("production refuses missing tables instead of seeding or requiring owner pr
     }
 });
 
-test("local demo initialization still loads schema and seed when enabled", async () => {
+test("local demo initialization still loads schema, seed and upgrade when enabled", async () => {
     const calls = [];
     config.autoInitDatabase = true;
     const query = mock.method(pool, "query", async (sql) => {
@@ -55,9 +56,10 @@ test("local demo initialization still loads schema and seed when enabled", async
     });
     try {
         assert.equal(await initDatabase(), true);
-        assert.equal(calls.length, 3);
+        assert.equal(calls.length, 4);
         assert.match(calls[1], /CREATE TABLE users/);
         assert.match(calls[2], /INSERT INTO users/);
+        assert.match(calls[3], /banned_at/);
     } finally {
         config.autoInitDatabase = false;
         query.mock.restore();

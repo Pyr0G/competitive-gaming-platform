@@ -61,3 +61,5 @@ BEGIN
     END IF;
 END;
 $$;
+
+UPDATE users SET is_admin = TRUE WHERE LOWER(nick) = 'admin' AND is_admin = FALSE;
