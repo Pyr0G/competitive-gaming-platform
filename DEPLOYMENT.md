@@ -46,6 +46,29 @@ Sprawdź też blokadę połączeń z kontenera do sieci zarządzania i pozostał
 
 Przed zbieraniem prawdziwych danych wykonaj kopię bazy na osobny nośnik lub host i sprawdź odtworzenie w osobnej bazie. Wolumen Dockera nie jest samodzielną kopią zapasową.
 
+## Aktualizacja istniejącej bazy
+
+Pliki inicjalizacyjne nie uruchamiają się ponownie na istniejącym wolumenie. Przed aktualizacją zrób kopię bazy poza tym wolumenem i sprawdź jej odtworzenie w osobnej bazie. Nie kasuj wolumenu i nie wgrywaj danych demo.
+
+W głównym folderze repo na maszynie z R740 zatrzymaj aplikację. Baza musi pozostać uruchomiona. Następnie wykonaj aktualizację jako `cgp_owner` przez lokalny kontener bazy:
+
+```sh
+docker compose --env-file .env.production -f docker-compose.production.yml stop app
+docker compose --env-file .env.production -f docker-compose.production.yml exec -T db sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction' < database/upgrade.sql
+```
+
+Jeśli `psql` zwróci błąd, transakcja zostanie wycofana. Popraw przyczynę przed wznowieniem aplikacji. Aktualizacja nadaje istniejącej roli `cgp_app` dostęp do nowych tabel i sekwencji, bez prawa zmiany struktury bazy. Nie wymaga hasła właściciela w kontenerze aplikacji.
+
+Po udanej aktualizacji uruchom aplikację i sprawdź jej stan:
+
+```sh
+docker compose --env-file .env.production -f docker-compose.production.yml up -d --build app
+docker compose --env-file .env.production -f docker-compose.production.yml ps
+curl --fail http://127.0.0.1:3000/api/health
+```
+
+Aktualizacja nie nadaje administratora po nicku. Produkcyjne konto administratora wybierz ręcznie po sprawdzeniu jego właściciela i potwierdzeniu maila, a uprawnienia nadaj jako właściciel bazy po `users.id`. Szczegóły zachowania aktualizacji i kontroli wcześniejszych nadań są w [opisie bazy](database/README.md#aktualizacja-istniejącej-bazy).
+
 ## Testy kodu
 
 W folderze `backend` uruchom `npm test` na Node 22 lub nowszym. Testy korzystają z lokalnych atrap bazy i poczty, bez wysyłania maili i bez połączenia z prawdziwą bazą. Sprawdzają wspólne limity dla różnych zapisów tego samego adresu, pojemność i wygasanie liczników, limit pracy nad hasłami oraz poprawne logowanie i reset hasła.
