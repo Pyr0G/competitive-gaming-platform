@@ -25,6 +25,7 @@ erDiagram
     USERS ||--o{ MESSAGES : "wysyła"
     USERS ||--o{ USER_BLOCKS : "blokuje"
     USERS ||--o{ USER_REPORTS : "zgłasza"
+    USERS ||--o{ ANNOUNCEMENTS : "publikuje"
     USERS ||--o{ TOURNAMENTS : "tworzy"
     TOURNAMENTS ||--o{ TOURNAMENT_TEAMS : "ma zapisy"
     TEAMS ||--o{ TOURNAMENT_TEAMS : "zapisuje się"
@@ -47,6 +48,7 @@ erDiagram
         text availability
         varchar bio
         boolean is_admin
+        timestamptz banned_at
         timestamptz created_at
     }
     TEAMS {
@@ -114,8 +116,15 @@ erDiagram
         bigint id PK
         bigint reporter_id FK
         bigint reported_id FK
+        bigint conversation_id FK
         varchar reason
         boolean resolved
+    }
+    ANNOUNCEMENTS {
+        bigint id PK
+        varchar content
+        bigint created_by FK
+        boolean is_active
     }
     TOURNAMENTS {
         bigint id PK
@@ -190,9 +199,7 @@ Rzeczy typu „maksymalnie 5 + 2 graczy” albo „tylko kapitan może zapisać 
 docker compose up -d
 ```
 
-Baza wstanie tylko na `127.0.0.1:5432` razem z przykładowymi danymi. To konfiguracja lokalna.
-
-Na R740 użyj osobnego pliku `docker-compose.production.yml` zgodnie z [DEPLOYMENT.md](../DEPLOYMENT.md). Produkcyjna baza nie wystawia portu na hoście i ma osobny wolumen `production_db_data`. Wczytuje `schema.sql` bez `seed.sql`, więc nie zakłada testowych kont. `init-app-role.sh` tworzy konto `cgp_app` z dostępem do tabel i sekwencji, bez uprawnień właściciela bazy, tworzenia obiektów i uruchamiania programów systemowych przez rolę superużytkownika. Przy zmianie schematu właściciel musi nadać odpowiednie uprawnienia do nowych tabel i sekwencji.
+Baza wstanie na porcie 5432 razem z przykładowymi danymi.
 
 ## Przykładowe zapytania
 

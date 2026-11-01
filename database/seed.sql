@@ -121,6 +121,10 @@ SELECT a.id, b.id FROM users a, users b WHERE a.nick = 'Ola' AND b.nick = 'Mateu
 INSERT INTO user_reports (reporter_id, reported_id, reason)
 SELECT a.id, b.id, 'Spamuje linkami na czacie' FROM users a, users b WHERE a.nick = 'Ola' AND b.nick = 'Mateusz';
 
+INSERT INTO announcements (content, created_by)
+SELECT 'Sezon 1 ruszył. Zapisy na Sesja Cup i Nocny Turniej BO3 są otwarte.', id
+FROM users WHERE nick = 'Admin';
+
 INSERT INTO tournaments (name, max_teams, format, rules, status, registration_closes_at, starts_at, created_by)
 SELECT v.name, v.max_teams, v.format::match_format, v.rules, v.status::tournament_status, v.closes_at::timestamptz, v.starts_at::timestamptz, u.id
 FROM (VALUES
