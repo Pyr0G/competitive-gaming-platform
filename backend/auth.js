@@ -7,6 +7,8 @@ import { config } from "./config.js";
 import { sendVerifyMail, sendResetMail } from "./mail.js";
 import { limit, passwordWork } from "./resource-limits.js";
 
+export { limit };
+
 export const auth = Router();
 
 const COOKIE = "cgp_session";
@@ -20,7 +22,7 @@ const newToken = () => {
 
 const hashToken = (token) => crypto.createHash("sha256").update(String(token)).digest("hex");
 
-const publicUser = (u) => ({ id: Number(u.id), nick: u.nick, email: u.email });
+const publicUser = (u) => ({ id: Number(u.id), nick: u.nick, email: u.email, admin: Boolean(u.is_admin) });
 
 export const readSession = (req, res, next) => {
     const cookie = (req.headers.cookie || "").split(";").map((c) => c.trim()).find((c) => c.startsWith(`${COOKIE}=`));
@@ -34,10 +36,19 @@ export const readSession = (req, res, next) => {
     next();
 };
 
-export const requireUser = (req, res, next) => {
+export const requireUser = async (req, res, next) => {
     if (!req.userId) return res.status(401).json({ error: "Zaloguj się, żeby to zrobić." });
+    const { rows } = await query("SELECT is_admin, banned_at FROM users WHERE id = $1", [req.userId]);
+    if (!rows.length) return res.status(401).json({ error: "Zaloguj się, żeby to zrobić." });
+    if (rows[0].banned_at) return res.status(403).json({ error: "To konto zostało zablokowane." });
+    req.isAdmin = rows[0].is_admin;
     next();
 };
+
+export const requireAdmin = (req, res, next) => requireUser(req, res, () => {
+    if (!req.isAdmin) return res.status(403).json({ error: "Tylko dla administratorów." });
+    next();
+});
 
 const setSession = (res, userId) => {
     res.cookie(COOKIE, jwt.sign({ id: userId }, config.jwtSecret, { expiresIn: "7d" }), {
@@ -112,13 +123,14 @@ auth.post("/login", limit("login", 20, 15), passwordWork(async (req, res) => {
     if (!login || !password) return res.status(400).json({ error: "Wpisz nick albo e-mail i hasło." });
 
     const { rows } = await query(
-        "SELECT id, nick, email, password_hash, email_verified_at FROM users WHERE LOWER(nick) = LOWER($1) OR LOWER(email) = LOWER($1)",
+        "SELECT id, nick, email, password_hash, email_verified_at, is_admin, banned_at FROM users WHERE LOWER(nick) = LOWER($1) OR LOWER(email) = LOWER($1)",
         [login],
     );
     const user = rows[0];
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
         return res.status(401).json({ error: "Zły nick, e-mail albo hasło." });
     }
+    if (user.banned_at) return res.status(403).json({ error: "To konto zostało zablokowane przez administratora." });
     if (!user.email_verified_at) {
         return res.status(403).json({ error: "Najpierw potwierdź maila. Link jest w skrzynce (zajrzyj też do spamu).", unverified: user.email });
     }
@@ -135,12 +147,16 @@ auth.post("/logout", (req, res) => {
 auth.get("/me", async (req, res) => {
     if (!req.userId) return res.json({ user: null });
     const { rows } = await query(
-        `SELECT u.id, u.nick, u.email, t.name AS team_name, t.tag AS team_tag
+        `SELECT u.id, u.nick, u.email, u.is_admin, u.banned_at, t.name AS team_name, t.tag AS team_tag
          FROM users u LEFT JOIN teams t ON t.captain_id = u.id WHERE u.id = $1 LIMIT 1`,
         [req.userId],
     );
     const u = rows[0];
-    res.json({ user: u ? { ...publicUser(u), team: u.team_tag ? { name: u.team_name, tag: u.team_tag } : null } : null });
+    if (!u || u.banned_at) {
+        res.clearCookie(COOKIE);
+        return res.json({ user: null });
+    }
+    res.json({ user: { ...publicUser(u), team: u.team_tag ? { name: u.team_name, tag: u.team_tag } : null } });
 });
 
 auth.post("/forgot", limit("forgot", 5, 15), async (req, res) => {
