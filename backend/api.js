@@ -1,7 +1,6 @@
 import { Router } from "express";
 import { query } from "./db.js";
-import { requireUser } from "./auth.js";
-import { limit } from "./resource-limits.js";
+import { limit, requireUser } from "./auth.js";
 
 export const api = Router();
 
@@ -21,6 +20,11 @@ const format = (date) => (date ? when.format(date) : "do ustalenia");
 api.get("/health", async (req, res) => {
     await query("SELECT 1");
     res.json({ ok: true });
+});
+
+api.get("/announcement", async (req, res) => {
+    const { rows } = await query("SELECT id::int, content FROM announcements WHERE is_active ORDER BY created_at DESC LIMIT 1");
+    res.json({ announcement: rows[0] || null });
 });
 
 api.get("/tournaments", async (req, res) => {
@@ -70,6 +74,7 @@ api.get("/tournaments", async (req, res) => {
                 time: format(m.scheduled_at),
                 state: MATCH_STATE[m.status],
                 faceit: m.faceit_match_id,
+                bye: m.status === "finished" && (!m.a || !m.b),
             })));
 
         const final = own.find((m) => m.round === roundCount);
@@ -82,7 +87,7 @@ api.get("/tournaments", async (req, res) => {
 
 api.get("/ads", async (req, res) => {
     const { rows } = await query(
-        `SELECT a.id::int, a.type, a.faceit_level, a.role, a.availability, a.description, a.created_at,
+        `SELECT a.id::int, a.author_id::int, a.type, a.faceit_level, a.role, a.availability, a.description, a.created_at,
                 a.author_id = $1 AS mine, u.nick, u.faceit_nick, t.name AS team_name, t.tag AS team_tag, cap.nick AS captain,
                 (SELECT COUNT(*) FROM team_members tm WHERE tm.team_id = t.id AND NOT tm.is_substitute)::int AS members
          FROM advertisements a
@@ -98,7 +103,7 @@ api.get("/ads", async (req, res) => {
 
 const ROLES = ["entry", "support", "awp", "igl", "flex"];
 
-api.post("/ads", requireUser, limit("ads", 10, 30), async (req, res) => {
+api.post("/ads", requireUser, limit(10, 30), async (req, res) => {
     const type = req.body.type === "lfm" ? "lfm" : "lfc";
     const role = ROLES.includes(req.body.role) ? req.body.role : null;
     const level = Number(req.body.level);

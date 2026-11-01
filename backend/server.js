@@ -4,6 +4,8 @@ import { config } from "./config.js";
 import { initDatabase } from "./db.js";
 import { auth, readSession } from "./auth.js";
 import { api } from "./api.js";
+import { chat } from "./chat.js";
+import { admin } from "./admin.js";
 
 const app = express();
 
@@ -13,6 +15,8 @@ app.use(express.json({ limit: "20kb" }));
 app.use(readSession);
 
 app.use("/api/auth", auth);
+app.use("/api/chat", chat);
+app.use("/api/admin", admin);
 app.use("/api", api);
 
 app.use("/api", (req, res) => res.status(404).json({ error: "Nie ma takiego adresu w API." }));
