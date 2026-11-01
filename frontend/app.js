@@ -1,6 +1,7 @@
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 
 const intro = $("#intro");
 const introDelay = sessionStorage.getItem("cgp-intro") || reducedMotion ? 0 : 1100;
@@ -255,14 +256,6 @@ new IntersectionObserver(([entry]) => {
     if (!tutorial.matches(":hover")) steps.classList.toggle("paused", !entry.isIntersecting);
 }, { threshold: 0.35 }).observe(tutorial);
 
-$$(".slots-grid").forEach((grid) => {
-    const filled = Number(grid.dataset.filled);
-    const total = Number(grid.dataset.total);
-    grid.style.gridTemplateColumns = `repeat(${Math.min(total, 8)}, 1fr)`;
-    grid.innerHTML = Array.from({ length: total }, (_, k) => `<i class="${k < filled ? "full" : ""}" style="--k: ${k}"></i>`).join("");
-    grid.insertAdjacentHTML("afterend", `<p class="slots-label"><b>${filled}</b> / ${total} drużyn zapisanych</p>`);
-});
-
 const pad = (n) => String(n).padStart(2, "0");
 
 const renderCountdowns = () => {
@@ -288,29 +281,102 @@ const renderCountdowns = () => {
 renderCountdowns();
 setInterval(renderCountdowns, 1000);
 
-const tCards = $$(".t-card");
+const tList = $("#tournaments");
 const tTabs = $$("#t-tabs .tab");
+const CARD_IMAGES = ["setup-sm", "lan-sm", "keyboard-sm", "hero-sm"];
+let tFilter = "all";
 
-tTabs.forEach((tab) => {
-    const filter = tab.dataset.filter;
-    $("span", tab).textContent = filter === "all" ? tCards.length : tCards.filter((c) => c.dataset.status === filter).length;
-    tab.addEventListener("click", () => {
-        tTabs.forEach((t) => t.classList.toggle("active", t === tab));
-        tCards.forEach((card) => card.classList.toggle("hidden", filter !== "all" && card.dataset.status !== filter));
+const slotsGrid = (filled, total) => `<div class="slots-grid" style="grid-template-columns: repeat(${Math.min(total, 8)}, 1fr)">${Array.from({ length: total }, (_, k) => `<i class="${k < filled ? "full" : ""}" style="--k: ${k}"></i>`).join("")}</div>
+    <p class="slots-label"><b>${filled}</b> / ${total} drużyn zapisanych</p>`;
+
+const signupButton = `<button type="button" class="btn btn-glow" data-modal="register" data-note="Żeby zapisać drużynę, załóż konto albo się zaloguj.">Zapisz drużynę</button>`;
+
+const tCard = (t, i) => {
+    const matches = (t.rounds || []).flat().filter((m) => !m.bye);
+    const played = matches.filter((m) => m.state === "done").length;
+    const count = t.registered ? t.registered.length : t.teams;
+    const bracketButton = (label, ghost) => `<button type="button" class="btn ${ghost ? "btn-ghost" : ""} ${t.status === "open" ? "" : "btn-full"}" data-show-bracket="${esc(t.id)}">${label}</button>`;
+    let badge;
+    let meta;
+    let extra;
+    let actions;
+
+    if (t.status === "open") {
+        badge = `<span class="badge badge-open">Zapisy otwarte</span>`;
+        meta = [["Start", t.start], ["Wolne", placesLeft(t.slots - count).replace(/^\S+ /, "")], ["Mapy", "Active Duty"]];
+        extra = `${slotsGrid(count, t.slots)}<div class="countdown" data-deadline="${esc(t.deadline)}"></div>`;
+        actions = bracketButton("Zapisane drużyny", true) + signupButton;
+    } else if (t.status === "live") {
+        const stage = t.rounds ? t.rounds.findIndex((r) => r.some((m) => m.state !== "done")) : -1;
+        badge = `<span class="badge badge-live"><span class="live-dot"></span>W trakcie</span>`;
+        meta = [
+            ["Start", t.start],
+            ["Etap", t.rounds ? roundName(stage < 0 ? t.rounds.length - 1 : stage, t.rounds.length) : "Losowanie"],
+            ["Mecze", `${played} / ${matches.length}`],
+        ];
+        extra = slotsGrid(count, t.slots);
+        actions = bracketButton("Zobacz drabinkę");
+    } else {
+        const final = t.rounds?.at(-1)?.[0];
+        badge = `<span class="badge badge-done">Zakończony</span>`;
+        meta = [["Odbył się", t.start.split(",")[0]], ["Drużyny", `${count} / ${t.slots}`], ["Finał", final?.state === "done" && !final.bye ? `${final.sa}:${final.sb}` : "-"]];
+        extra = t.champion
+            ? `<div class="winner">${trophy}<span>Zwycięzca</span><b>${esc(TEAMS[t.champion])}</b></div>`
+            : `<p class="slots-label">Turniej zakończony bez zwycięzcy.</p>`;
+        actions = bracketButton("Zobacz drabinkę", true);
+    }
+
+    return `<article class="t-card reveal" data-status="${t.status}" style="--img: url('assets/${CARD_IMAGES[i % CARD_IMAGES.length]}.jpg')">
+        <div class="t-card-img"><span class="t-game">CS2 | 5 na 5</span></div>
+        <div class="t-card-body">
+            <div class="t-card-top">${badge}<span class="format">${esc(t.format)}</span></div>
+            <h3>${esc(t.name)}</h3>
+            <ul class="meta">${meta.map(([key, value]) => `<li><span>${key}</span>${esc(value)}</li>`).join("")}</ul>
+            ${extra}
+            <div class="t-card-actions">${actions}</div>
+        </div>
+    </article>`;
+};
+
+const applyTFilter = () => $$(".t-card", tList).forEach((card) => card.classList.toggle("hidden", tFilter !== "all" && card.dataset.status !== tFilter));
+
+const renderCards = () => {
+    tList.innerHTML = TOURNAMENTS.map(tCard).join("");
+    tTabs.forEach((tab) => {
+        const filter = tab.dataset.filter;
+        $("span", tab).textContent = filter === "all" ? TOURNAMENTS.length : TOURNAMENTS.filter((t) => t.status === filter).length;
     });
+    applyTFilter();
+    observeReveal(tList);
+    renderCountdowns();
+};
+
+tTabs.forEach((tab) => tab.addEventListener("click", () => {
+    tFilter = tab.dataset.filter;
+    tTabs.forEach((t) => t.classList.toggle("active", t === tab));
+    applyTFilter();
+}));
+
+tList.addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-show-bracket]");
+    if (!btn) return;
+    selectTournament(btn.dataset.showBracket);
+    $("#drabinka").scrollIntoView({ behavior: "smooth" });
 });
 
 if (canAim) {
-    tCards.forEach((card) => {
-        card.addEventListener("pointermove", (e) => {
-            const r = card.getBoundingClientRect();
-            card.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - 0.5) * 6}deg`);
-            card.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - 0.5) * -6}deg`);
-        });
-        card.addEventListener("pointerleave", () => {
-            card.style.setProperty("--rx", "0deg");
-            card.style.setProperty("--ry", "0deg");
-        });
+    tList.addEventListener("pointermove", (e) => {
+        const card = e.target.closest(".t-card");
+        if (!card) return;
+        const r = card.getBoundingClientRect();
+        card.style.setProperty("--ry", `${((e.clientX - r.left) / r.width - 0.5) * 6}deg`);
+        card.style.setProperty("--rx", `${((e.clientY - r.top) / r.height - 0.5) * -6}deg`);
+    });
+    tList.addEventListener("pointerout", (e) => {
+        const card = e.target.closest(".t-card");
+        if (!card || card.contains(e.relatedTarget)) return;
+        card.style.setProperty("--rx", "0deg");
+        card.style.setProperty("--ry", "0deg");
     });
 }
 
@@ -458,23 +524,27 @@ let current = TOURNAMENTS[0];
 let selected = null;
 
 const roundName = (i, total) => ["Finał", "Półfinały", "Ćwierćfinały"][total - i - 1] || `Runda ${i + 1}`;
-const winnerOf = (m) => (m.state === "done" ? (m.sa > m.sb ? m.a : m.b) : null);
+const winnerOf = (m) => {
+    if (m.state !== "done") return null;
+    if (m.bye) return m.a || m.b;
+    return m.sa > m.sb ? m.a : m.b;
+};
 
 const teamRow = (code, score, m) => {
-    if (!code) return `<div class="team tbd"><span class="team-tag">?</span><span class="team-name">Do ustalenia</span><b>-</b></div>`;
+    if (!code) return `<div class="team tbd"><span class="team-tag">?</span><span class="team-name">${m.bye ? "Wolny los" : "Do ustalenia"}</span><b>-</b></div>`;
     const win = winnerOf(m);
     const cls = win ? (win === code ? "win" : "lose") : "";
     return `<div class="team ${cls}" data-team="${code}"><span class="team-tag">${code}</span><span class="team-name">${TEAMS[code]}</span><b>${score ?? "-"}</b></div>`;
 };
 
 const renderTabs = () => {
-    bTabs.innerHTML = TOURNAMENTS.map((t) => `<button type="button" class="tab ${t === current ? "active" : ""}" data-id="${t.id}"><i class="dot ${STATUS[t.status].dot}"></i>${t.name}</button>`).join("");
+    bTabs.innerHTML = TOURNAMENTS.map((t) => `<button type="button" class="tab ${t === current ? "active" : ""}" data-id="${esc(t.id)}"><i class="dot ${STATUS[t.status].dot}"></i>${esc(t.name)}</button>`).join("");
 };
 
 const renderInfo = () => {
     const t = current;
     const count = t.registered ? t.registered.length : t.teams;
-    bInfo.innerHTML = `<h3>${t.name}</h3>
+    bInfo.innerHTML = `<h3>${esc(t.name)}</h3>
         <span class="badge ${STATUS[t.status].badge}">${STATUS[t.status].label}</span>
         <span>Format <b>${t.format}</b></span>
         <span>Start <b>${t.start}</b></span>
@@ -530,7 +600,7 @@ const panelFor = (m, ri, mi) => {
     const win = winnerOf(m);
     const team = (code, score) => code
         ? `<div class="panel-team ${win === code ? "win" : ""}"><span class="team-tag">${code}</span>${TEAMS[code]}<b>${score ?? "-"}</b></div>`
-        : `<div class="panel-team"><span class="team-tag">?</span>Do ustalenia<b>-</b></div>`;
+        : `<div class="panel-team"><span class="team-tag">?</span>${m.bye ? "Wolny los" : "Do ustalenia"}<b>-</b></div>`;
     const texts = {
         done: "Wynik pobrany automatycznie z FACEIT. Gracze w meczu zgadzali się ze składami zapisanymi na turniej.",
         pending: "Mecz się toczy albo czeka na link. Po meczu kapitan wkleja link do pokoju z FACEIT i wynik wpisuje się sam.",
@@ -549,7 +619,7 @@ const panelFor = (m, ri, mi) => {
             <li><span>Format</span>${t.format}</li>
             <li><span>Mecz FACEIT</span>${m.faceit ? `<code>${m.faceit}</code>` : "jeszcze brak"}</li>
         </ul>
-        <p class="panel-text">${texts[m.state]}</p>
+        <p class="panel-text">${m.bye ? "Wolny los: drużyna przechodzi do następnej rundy bez gry." : texts[m.state]}</p>
         ${action}`;
 };
 
@@ -561,8 +631,8 @@ const renderPanel = () => {
 
     if (!t.rounds) {
         const free = t.slots - t.registered.length;
-        bPanel.innerHTML = `<p class="panel-label">Zapisy otwarte</p>
-            <h4>${t.name}</h4>
+        bPanel.innerHTML = `<p class="panel-label">${t.status === "open" ? "Zapisy otwarte" : "Losowanie drabinki"}</p>
+            <h4>${esc(t.name)}</h4>
             <ul class="panel-rows">
                 <li><span>Wolne miejsca</span>${free}</li>
                 <li><span>Format</span>${t.format}</li>
@@ -616,11 +686,6 @@ bracket.addEventListener("click", (e) => {
     $$(".match", bracket).forEach((el) => el.classList.toggle("selected", el === match));
     renderPanel();
 });
-
-$$("[data-show-bracket]").forEach((btn) => btn.addEventListener("click", () => {
-    selectTournament(btn.dataset.showBracket);
-    $("#drabinka").scrollIntoView({ behavior: "smooth" });
-}));
 
 selectTournament(TOURNAMENTS[0].id);
 
@@ -756,14 +821,13 @@ $$("[data-tab-go]", modal).forEach((btn) => btn.addEventListener("click", () => 
 }));
 
 const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
-const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
 
 let currentUser = null;
 
 const openModal = (name, note) => {
     if (currentUser && (name === "login" || name === "register")) {
         name = "account";
-        note = note ? "Jesteś zalogowany. Ta funkcja wejdzie w kolejnym etapie projektu." : "";
+        note = note || "";
     }
     if (!currentUser && name === "ad") {
         name = "login";
@@ -843,6 +907,9 @@ const setUser = (user) => {
     registerButton.hidden = Boolean(user);
     $("#account-nick").textContent = user?.nick || "";
     $("#account-email").textContent = user?.email || "";
+    $("#admin-btn").hidden = !user?.admin;
+    $("[data-admin-open]", modal).hidden = !user?.admin;
+    $("#chat-btn").hidden = !user;
     document.dispatchEvent(new CustomEvent("cgp:user"));
 };
 
@@ -1013,7 +1080,9 @@ const adCard = (ad) => {
         </ul>
         ${ad.mine
             ? `<button type="button" class="btn btn-full btn-ghost" data-close-ad="${ad.id}">Zamknij ogłoszenie</button>`
-            : `<button type="button" class="btn btn-full" data-modal="login" data-note="Zaloguj się, żeby napisać do: ${esc(who)}.">Napisz</button>`}
+            : currentUser
+                ? `<button type="button" class="btn btn-full" data-chat="${ad.author_id}">Napisz${team ? ` do ${esc(ad.captain)}` : ""}</button>`
+                : `<button type="button" class="btn btn-full" data-modal="login" data-note="Zaloguj się, żeby napisać do: ${esc(who)}.">Napisz</button>`}
     </article>`;
 };
 
@@ -1141,20 +1210,54 @@ const renderTicker = (adList = []) => {
 };
 
 renderRanking();
+renderCards();
+
+const applyTournaments = (data) => {
+    if (!data.tournaments.length) return;
+    const keep = current.name;
+    TEAMS = data.teams;
+    TOURNAMENTS = data.tournaments;
+    selectTournament(keep);
+    renderRanking();
+    renderCards();
+};
+
+const loadTournaments = () => api("/tournaments").then(applyTournaments);
+
+const notice = $("#notice");
+
+const setNoticeHeight = () => document.documentElement.style.setProperty("--notice", notice.hidden ? "0px" : `${notice.offsetHeight}px`);
+
+const showNotice = (item) => {
+    const hide = !item || localStorage.getItem("cgp-notice") === String(item.id);
+    notice.hidden = hide;
+    if (!hide) {
+        notice.dataset.id = item.id;
+        $("#notice-text").textContent = item.content;
+    }
+    setNoticeHeight();
+};
+
+const loadNotice = () => api("/announcement").then((data) => showNotice(data.announcement)).catch(() => {});
+
+$("#notice-x").addEventListener("click", () => {
+    localStorage.setItem("cgp-notice", notice.dataset.id);
+    notice.classList.add("out");
+    setTimeout(() => {
+        notice.classList.remove("out");
+        showNotice(null);
+    }, 300);
+});
+
+window.addEventListener("resize", setNoticeHeight);
 
 const loadData = async () => {
     if (!(await backend)) return;
 
     const [tournaments, me] = await Promise.allSettled([api("/tournaments"), api("/auth/me")]);
     if (me.status === "fulfilled") setUser(me.value.user);
-
-    if (tournaments.status === "fulfilled" && tournaments.value.tournaments.length) {
-        const keep = current.name;
-        TEAMS = tournaments.value.teams;
-        TOURNAMENTS = tournaments.value.tournaments;
-        selectTournament(keep);
-        renderRanking();
-    }
+    if (tournaments.status === "fulfilled") applyTournaments(tournaments.value);
+    loadNotice();
 
     const adList = await loadAds().catch(() => []);
     renderTicker(adList);
@@ -1174,3 +1277,80 @@ const loadData = async () => {
 };
 
 loadData();
+
+const chicken = $("#chicken");
+const chickenSay = $("#chicken-say");
+const chickenScore = $("#chicken-score");
+const CLUCKS = ["ko ko?", "rush B?", "eco runda?", "nie strzelaj", "ko ko ko", "gdzie bomba?", "gg ez"];
+const CHICKEN_LINES = {
+    1: "Kurczak padł. Valve tego nie zapomni.",
+    3: "Trzy kurczaki. To już nawyk.",
+    5: "Pięć kurczaków. Ktoś tu trenuje aim na niewinnych.",
+    10: "Dziesięć kurczaków. Legenda Inferno.",
+    25: "25 kurczaków. Odejdź od klawiatury.",
+};
+let chickens = Number(localStorage.getItem("cgp-chickens")) || 0;
+
+const showChickens = () => {
+    chickenScore.hidden = !chickens;
+    chickenScore.textContent = `Kurczaki: ${chickens}`;
+};
+
+showChickens();
+
+setInterval(() => {
+    if (chicken.classList.contains("dead") || chicken.matches(":hover") || Math.random() < 0.5) return;
+    chickenSay.textContent = CLUCKS[Math.floor(Math.random() * CLUCKS.length)];
+    chicken.classList.add("talk");
+    setTimeout(() => chicken.classList.remove("talk"), 1800);
+}, 6000);
+
+chicken.addEventListener("mouseenter", () => {
+    chickenSay.textContent = "ko ko?";
+});
+
+chicken.addEventListener("click", () => {
+    if (chicken.classList.contains("dead")) return;
+    const r = chicken.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+
+    for (let i = 0; i < 16; i++) {
+        const feather = document.createElement("i");
+        const angle = Math.random() * Math.PI * 2;
+        const power = 40 + Math.random() * 90;
+        feather.className = "feather";
+        feather.style.left = `${x}px`;
+        feather.style.top = `${y}px`;
+        feather.style.setProperty("--dx", `${Math.cos(angle) * power}px`);
+        feather.style.setProperty("--dy", `${Math.sin(angle) * power - 40}px`);
+        feather.style.setProperty("--rot", `${Math.random() * 720 - 360}deg`);
+        document.body.append(feather);
+        setTimeout(() => feather.remove(), 1400);
+    }
+
+    const plus = document.createElement("span");
+    plus.className = "chicken-plus";
+    plus.textContent = "+1 kurczak";
+    plus.style.left = `${x}px`;
+    plus.style.top = `${y - 20}px`;
+    document.body.append(plus);
+    setTimeout(() => plus.remove(), 1200);
+
+    chicken.classList.remove("talk");
+    chicken.classList.add("dead");
+    chickens++;
+    localStorage.setItem("cgp-chickens", chickens);
+    showChickens();
+    chickenScore.classList.remove("bump");
+    void chickenScore.offsetWidth;
+    chickenScore.classList.add("bump");
+    if (CHICKEN_LINES[chickens]) toast(CHICKEN_LINES[chickens]);
+
+    setTimeout(() => {
+        chicken.style.animation = "none";
+        void chicken.offsetWidth;
+        chicken.style.animation = "";
+        chicken.classList.remove("dead");
+    }, 6000);
+});
