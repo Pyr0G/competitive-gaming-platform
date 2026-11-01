@@ -1226,7 +1226,10 @@ const loadTournaments = () => api("/tournaments").then(applyTournaments);
 
 const notice = $("#notice");
 
-const setNoticeHeight = () => document.documentElement.style.setProperty("--notice", notice.hidden ? "0px" : `${notice.offsetHeight}px`);
+const setNoticeHeight = () => {
+    if (!notice.hidden) notice.style.setProperty("--notice-content-height", `${$(".notice-inner", notice).offsetHeight}px`);
+    document.documentElement.style.setProperty("--notice", notice.hidden ? "0px" : `${notice.offsetHeight}px`);
+};
 
 const showNotice = (item) => {
     const hide = !item || localStorage.getItem("cgp-notice") === String(item.id);
