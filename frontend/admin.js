@@ -4,6 +4,7 @@ const adminNav = $("#admin-nav");
 const adminReports = $("#admin-reports");
 
 let adminView = "stats";
+let adminRequest = 0;
 
 const whenAdmin = new Intl.DateTimeFormat("pl-PL", {
     day: "2-digit",
@@ -22,6 +23,7 @@ const openAdmin = async () => {
 };
 
 const closeAdmin = () => {
+    adminRequest++;
     adminBox.hidden = true;
     document.body.classList.remove("admin-on");
 };
@@ -32,9 +34,9 @@ const markReports = (n) => {
 };
 
 const views = {
-    stats: async () => {
+    stats: async (isCurrent) => {
         const s = await api("/admin/stats");
-        markReports(s.reports);
+        if (isCurrent()) markReports(s.reports);
         return `<div class="admin-head"><h2>Przegląd</h2><p>Stan platformy na teraz.</p></div>
         <div class="admin-kpis">
             <article><b>${s.users}</b><span>kont</span></article>
@@ -78,9 +80,9 @@ const views = {
             <td>${a.is_closed ? "" : `<button type="button" class="btn btn-ghost" data-admin-act="ad" data-id="${a.id}">Zamknij</button>`}</td>
         </tr>`).join("")}</tbody></table>`;
     },
-    reports: async () => {
+    reports: async (isCurrent) => {
         const { reports } = await api("/admin/reports");
-        markReports(reports.filter((r) => !r.resolved).length);
+        if (isCurrent()) markReports(reports.filter((r) => !r.resolved).length);
         return `<div class="admin-head"><h2>Zgłoszenia</h2><p>Ostatnie wiadomości z rozmowy, jeśli ktoś pisał.</p></div>
         <div class="admin-reports">${reports.map((r) => `<article class="admin-card ${r.resolved ? "done" : ""}">
             <header><b>${esc(r.reporter)}</b> zgłasza <b>${esc(r.reported)}</b><time>${stamp(r.created_at)}</time></header>
@@ -122,11 +124,14 @@ const views = {
 };
 
 const drawAdmin = async () => {
+    const request = ++adminRequest;
+    const isCurrent = () => request === adminRequest;
     $$("button", adminNav).forEach((btn) => btn.classList.toggle("active", btn.dataset.view === adminView));
     try {
-        adminMain.innerHTML = await views[adminView]();
+        const html = await views[adminView](isCurrent);
+        if (isCurrent()) adminMain.innerHTML = html;
     } catch (err) {
-        adminMain.innerHTML = `<p class="admin-err">${esc(err.message)}</p>`;
+        if (isCurrent()) adminMain.innerHTML = `<p class="admin-err">${esc(err.message)}</p>`;
     }
 };
 
@@ -146,6 +151,9 @@ const runAdmin = async (act, id, extra) => {
     await api(...args);
     toast("Zrobione.");
     if (act === "ad") loadAds().catch(() => {});
+    if (act === "cancel" || act === "close-reg") {
+        await loadTournaments().catch(() => toast("Zmiana zapisana, ale nie udało się odświeżyć turniejów. Odśwież stronę.", "err"));
+    }
     await drawAdmin();
 };
 
