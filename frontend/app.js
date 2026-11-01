@@ -1190,7 +1190,10 @@ const placesLeft = (n) => {
     return `zostało ${n} miejsc`;
 };
 
-const renderTicker = (adList = []) => {
+let tickerAds = [];
+
+const renderTicker = (adList = tickerAds) => {
+    tickerAds = adList;
     const team = (tag) => `<b>${esc(TEAMS[tag] || tag)}</b>`;
     const items = [];
     TOURNAMENTS.forEach((t) => {
@@ -1204,7 +1207,10 @@ const renderTicker = (adList = []) => {
     adList.filter((ad) => ad.type === "lfm").slice(0, 2).forEach((ad) => {
         items.push(`<b>${esc(ad.team_name)}</b> szuka ${esc(ROLES[ad.role] || "gracza").toLowerCase()}, FACEIT ${ad.faceit_level}+`);
     });
-    if (!items.length) return;
+    if (!items.length) {
+        $("#ticker-track").innerHTML = "";
+        return;
+    }
     const group = (hidden) => `<div class="ticker-group"${hidden ? ' aria-hidden="true"' : ""}><span class="ticker-live">Na żywo</span>${items.map((i) => `<span>${i}</span><i></i>`).join("")}</div>`;
     $("#ticker-track").innerHTML = group(false) + group(true);
 };
@@ -1220,6 +1226,7 @@ const applyTournaments = (data) => {
     selectTournament(keep);
     renderRanking();
     renderCards();
+    renderTicker();
 };
 
 const loadTournaments = () => api("/tournaments").then(applyTournaments);
