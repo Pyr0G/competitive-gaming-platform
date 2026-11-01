@@ -17,6 +17,7 @@ CREATE TABLE users (
     availability TEXT,
     bio VARCHAR(500),
     is_admin BOOLEAN NOT NULL DEFAULT FALSE,
+    banned_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -110,8 +111,17 @@ CREATE TABLE user_reports (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     reporter_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
     reported_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    conversation_id BIGINT REFERENCES conversations (id) ON DELETE SET NULL,
     reason VARCHAR(1000) NOT NULL,
     resolved BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE announcements (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    content VARCHAR(200) NOT NULL,
+    created_by BIGINT REFERENCES users (id) ON DELETE SET NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
