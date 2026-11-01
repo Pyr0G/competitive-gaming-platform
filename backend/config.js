@@ -1,10 +1,15 @@
 const port = Number(process.env.PORT) || 3000;
+const production = process.env.NODE_ENV === "production";
+
+if (production && process.env.AUTO_INIT_DATABASE === "true") {
+    throw new Error("AUTO_INIT_DATABASE=true jest dostępne tylko poza produkcją.");
+}
 
 export const config = {
     port,
-    production: process.env.NODE_ENV === "production",
+    production,
     databaseUrl: process.env.DATABASE_URL,
-    autoInitDatabase: process.env.AUTO_INIT_DATABASE !== "false",
+    autoInitDatabase: !production && process.env.AUTO_INIT_DATABASE === "true",
     appUrl: (process.env.APP_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).replace(/\/$/, ""),
     jwtSecret: process.env.JWT_SECRET || "zmien-mnie-lokalnie",
     brevoKey: process.env.BREVO_API_KEY,

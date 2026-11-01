@@ -204,6 +204,8 @@ Baza wstanie na porcie 5432 razem z przykładowymi danymi.
 
 ## Aktualizacja istniejącej bazy
 
+Automatyczne dane demo wymagają `AUTO_INIT_DATABASE=true` i trybu innego niż produkcyjny. Produkcja domyślnie wyłącza inicjalizację i odrzuca próbę jej włączenia. `db:reset` też odmawia działania w produkcji. Nową bazę produkcyjną przygotuj jako właściciel z samego `schema.sql`, bez `seed.sql`, a administratora wybierz ręcznie.
+
 Najpierw zrób kopię bazy i sprawdź jej odtworzenie w osobnej bazie. Zatrzymaj aplikację, a `upgrade.sql` uruchom jako właściciel bazy przez `psql` z opcjami `-v ON_ERROR_STOP=1 --single-transaction`. Po błędzie popraw przyczynę przed ponownym uruchomieniem aplikacji. Nie uruchamiaj `schema.sql`, `seed.sql` ani `db:reset` na istniejącej bazie produkcyjnej. Procedura dla R740 jest w [DEPLOYMENT.md](../DEPLOYMENT.md#aktualizacja-istniejącej-bazy).
 
 Aktualizację można powtórzyć. Zachowuje dane i dotychczasowe uprawnienia administratorów. Jeśli istnieje rola `cgp_app`, dostaje odczyt, dodawanie, zmianę i usuwanie danych w tabelach czatu, blokad, zgłoszeń i komunikatów oraz dostęp do ich sekwencji ID. Skrypt nie tworzy tej roli i nie nadaje jej uprawnień do zmiany struktury bazy. Lokalna baza bez `cgp_app` też może użyć tego skryptu.

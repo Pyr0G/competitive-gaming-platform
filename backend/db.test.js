@@ -7,8 +7,21 @@ const config = {
     autoInitDatabase: false,
 };
 mock.module(new URL("./config.js", import.meta.url).href, { namedExports: { config } });
-const { pool, initDatabase } = await import("./db.js");
+const { pool, initDatabase, loadSchemaAndSeed } = await import("./db.js");
 after(() => pool.end());
+
+test("direct demo loading rejects production before executing SQL", async () => {
+    config.production = true;
+    const calls = [];
+    const query = mock.method(pool, "query", async (sql) => { calls.push(sql); });
+    try {
+        await assert.rejects(loadSchemaAndSeed(), /demo/);
+        assert.deepEqual(calls, []);
+    } finally {
+        config.production = false;
+        query.mock.restore();
+    }
+});
 
 test("the production URL disables TLS only for the explicitly configured private connection", () => {
     const client = new pg.Client(pool.options);

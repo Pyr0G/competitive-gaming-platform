@@ -16,6 +16,7 @@ export const query = (text, params) => pool.query(text, params);
 const sqlFile = (name) => fs.readFile(path.join(import.meta.dirname, "..", "database", name), "utf8");
 
 export const loadSchemaAndSeed = async () => {
+    if (config.production) throw new Error("Dane demo nie mogą być ładowane w produkcji.");
     await pool.query(await sqlFile("schema.sql"));
     await pool.query(await sqlFile("seed.sql"));
 };
