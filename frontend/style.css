@@ -4404,3 +4404,8 @@ body.admin-on {
         display: none;
     }
 }
+body.session-check #chat,
+body.session-check #admin,
+body.session-check #modal {
+    visibility: hidden;
+}
