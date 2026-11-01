@@ -49,4 +49,15 @@ CREATE TABLE IF NOT EXISTS announcements (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-UPDATE users SET is_admin = TRUE WHERE LOWER(nick) = 'admin' AND is_admin = FALSE;
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cgp_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON
+            conversations, messages, user_blocks, user_reports, announcements
+            TO cgp_app;
+        GRANT USAGE, SELECT ON SEQUENCE
+            conversations_id_seq, messages_id_seq, user_reports_id_seq, announcements_id_seq
+            TO cgp_app;
+    END IF;
+END;
+$$;
