@@ -16,6 +16,13 @@
     <div class="progress" id="progress"></div>
 
     <header class="topbar" id="topbar">
+        <div class="notice" id="notice" hidden>
+            <div class="container notice-inner">
+                <span class="notice-tag">Komunikat</span>
+                <p id="notice-text"></p>
+                <button type="button" class="notice-x" id="notice-x" aria-label="Ukryj komunikat">×</button>
+            </div>
+        </div>
         <div class="container topbar-inner">
             <a href="#top" class="brand" aria-label="CGP, strona główna">
                 <img src="assets/logo-wordmark.png" alt="CGP">
@@ -30,6 +37,13 @@
                 <span class="nav-ink" id="nav-ink"></span>
             </nav>
             <div class="auth">
+                <button type="button" class="icon-btn" id="admin-btn" aria-label="Panel admina" title="Panel admina" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z" /><path d="M9 12l2 2 4-4" /></svg>
+                </button>
+                <button type="button" class="icon-btn" id="chat-btn" aria-label="Wiadomości" title="Wiadomości" hidden>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
+                    <span class="icon-badge" id="chat-badge" hidden></span>
+                </button>
                 <button type="button" class="btn-login" data-modal="login">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg>
                     <span>Zaloguj</span>
@@ -257,92 +271,7 @@
                     <button type="button" class="tab" data-filter="live">W trakcie <span></span></button>
                     <button type="button" class="tab" data-filter="done">Zakończone <span></span></button>
                 </div>
-                <div class="tournaments" id="tournaments">
-                    <article class="t-card reveal" data-status="live" style="--img: url('assets/setup-sm.jpg')">
-                        <div class="t-card-img"><span class="t-game">CS2 | 5 na 5</span></div>
-                        <div class="t-card-body">
-                            <div class="t-card-top">
-                                <span class="badge badge-live"><span class="live-dot"></span>W trakcie</span>
-                                <span class="format">BO1</span>
-                            </div>
-                            <h3>Puchar Akademika #1</h3>
-                            <ul class="meta">
-                                <li><span>Start</span>24.10, 18:00</li>
-                                <li><span>Etap</span>Półfinały</li>
-                                <li><span>Mecze</span>1 / 3</li>
-                            </ul>
-                            <div class="slots-grid" data-filled="4" data-total="8"></div>
-                            <div class="t-card-actions">
-                                <button type="button" class="btn btn-full" data-show-bracket="Puchar Akademika #1">Zobacz drabinkę</button>
-                            </div>
-                        </div>
-                    </article>
-                    <article class="t-card reveal" data-status="open" style="--img: url('assets/lan-sm.jpg')">
-                        <div class="t-card-img"><span class="t-game">CS2 | 5 na 5</span></div>
-                        <div class="t-card-body">
-                            <div class="t-card-top">
-                                <span class="badge badge-open">Zapisy otwarte</span>
-                                <span class="format">BO1</span>
-                            </div>
-                            <h3>Sesja Cup</h3>
-                            <ul class="meta">
-                                <li><span>Start</span>08.11, 18:00</li>
-                                <li><span>Wolne</span>3 miejsca</li>
-                                <li><span>Mapy</span>Active Duty</li>
-                            </ul>
-                            <div class="slots-grid" data-filled="5" data-total="8"></div>
-                            <div class="countdown" data-deadline="2026-11-07T18:00:00+01:00"></div>
-                            <div class="t-card-actions">
-                                <button type="button" class="btn btn-ghost" data-show-bracket="Sesja Cup">Zapisane drużyny</button>
-                                <button type="button" class="btn btn-glow" data-modal="register" data-note="Żeby zapisać drużynę, załóż konto albo się zaloguj.">Zapisz drużynę</button>
-                            </div>
-                        </div>
-                    </article>
-                    <article class="t-card reveal" data-status="open" style="--img: url('assets/keyboard-sm.jpg')">
-                        <div class="t-card-img"><span class="t-game">CS2 | 5 na 5</span></div>
-                        <div class="t-card-body">
-                            <div class="t-card-top">
-                                <span class="badge badge-open">Zapisy otwarte</span>
-                                <span class="format">BO3</span>
-                            </div>
-                            <h3>Nocny Turniej BO3</h3>
-                            <ul class="meta">
-                                <li><span>Start</span>15.11, 18:00</li>
-                                <li><span>Wolne</span>15 miejsc</li>
-                                <li><span>Mapy</span>Active Duty</li>
-                            </ul>
-                            <div class="slots-grid" data-filled="1" data-total="16"></div>
-                            <div class="countdown" data-deadline="2026-11-14T18:00:00+01:00"></div>
-                            <div class="t-card-actions">
-                                <button type="button" class="btn btn-ghost" data-show-bracket="Nocny Turniej BO3">Zapisane drużyny</button>
-                                <button type="button" class="btn btn-glow" data-modal="register" data-note="Żeby zapisać drużynę, załóż konto albo się zaloguj.">Zapisz drużynę</button>
-                            </div>
-                        </div>
-                    </article>
-                    <article class="t-card reveal" data-status="done" style="--img: url('assets/hero-sm.jpg')">
-                        <div class="t-card-img"><span class="t-game">CS2 | 5 na 5</span></div>
-                        <div class="t-card-body">
-                            <div class="t-card-top">
-                                <span class="badge badge-done">Zakończony</span>
-                                <span class="format">BO1</span>
-                            </div>
-                            <h3>Turniej Otwarcia</h3>
-                            <ul class="meta">
-                                <li><span>Odbył się</span>17.10</li>
-                                <li><span>Drużyny</span>8 / 8</li>
-                                <li><span>Finał</span>13:11</li>
-                            </ul>
-                            <div class="winner">
-                                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v3h3v2a5 5 0 0 1-4.6 5A5 5 0 0 1 13 15.9V18h3v3H8v-3h3v-2.1A5 5 0 0 1 8.6 13 5 5 0 0 1 4 8V6h3V3zm-1 5c0 1.2.8 2.3 2 2.7V8H6zm12 0h-2v2.7c1.2-.4 2-1.5 2-2.7z" /></svg>
-                                <span>Zwycięzca</span>
-                                <b>Sigma Squad</b>
-                            </div>
-                            <div class="t-card-actions">
-                                <button type="button" class="btn btn-full btn-ghost" data-show-bracket="Turniej Otwarcia">Zobacz drabinkę</button>
-                            </div>
-                        </div>
-                    </article>
-                </div>
+                <div class="tournaments" id="tournaments"></div>
             </div>
         </section>
 
@@ -599,23 +528,35 @@
                     <a href="#veto">Veto map</a>
                 </div>
                 <div class="footer-col">
-                    <h4>Projekt</h4>
-                    <p>Projekt zaliczeniowy z przedmiotu <b>Technologie Internetowe</b>.</p>
-                    <ul class="tech">
-                        <li>HTML</li>
-                        <li>CSS</li>
-                        <li>JavaScript</li>
-                        <li>PostgreSQL</li>
-                        <li>FACEIT API</li>
-                    </ul>
+                    <h4>Konto</h4>
+                    <button type="button" data-modal="register">Załóż konto</button>
+                    <button type="button" data-modal="login">Zaloguj się</button>
+                    <button type="button" data-modal="ad">Dodaj ogłoszenie</button>
+                    <button type="button" data-chat-open>Wiadomości</button>
                 </div>
-                <div class="footer-uni">
-                    <img src="assets/ukw-logo.png" alt="Uniwersytet Kazimierza Wielkiego w Bydgoszczy">
-                    <p>Realizowany przez studentów Uniwersytetu Kazimierza Wielkiego w Bydgoszczy.</p>
+                <div class="footer-col footer-live">
+                    <h4>Na serwerze</h4>
+                    <p><span class="live-dot"></span>Turnieje co tydzień, zapisy przez całą dobę.</p>
+                    <p>Wyniki prosto z FACEIT, bez screenów i bez czekania na admina.</p>
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>© 2026 CGP. Projekt studencki, nie jest powiązany z Valve, Riot Games ani FACEIT.</p>
+                <p>© 2026 CGP. Nie jesteśmy powiązani z Valve ani FACEIT. Counter-Strike jest znakiem towarowym Valve Corporation.</p>
+                <p class="chicken-score" id="chicken-score" hidden></p>
+                <button type="button" class="chicken" id="chicken" aria-label="Kurczak">
+                    <span class="chicken-say" id="chicken-say">ko ko?</span>
+                    <svg viewBox="0 0 48 48" aria-hidden="true">
+                        <g class="ch-legs"><path class="ch-leg ch-leg-a" d="M21 36v8h-3" /><path class="ch-leg ch-leg-b" d="M27 36v8h3" /></g>
+                        <ellipse class="ch-body" cx="23" cy="28" rx="13" ry="10" />
+                        <path class="ch-tail" d="M10 24l-6-7 2 9z" />
+                        <path class="ch-wing" d="M16 26c3 6 10 7 13 3-4 0-9-1-13-3z" />
+                        <circle class="ch-body" cx="33" cy="15" r="7" />
+                        <path class="ch-comb" d="M30 9c0-3 2-4 3-2 1-2 3-2 3 0 2-1 3 1 2 3z" />
+                        <path class="ch-beak" d="M39 14l6 2-6 2z" />
+                        <path class="ch-wattle" d="M38 19c1 3-1 4-2 2z" />
+                        <circle class="ch-eye" cx="35" cy="13.5" r="1.4" />
+                    </svg>
+                </button>
                 <a href="#top" class="to-top">Do góry <span aria-hidden="true">↑</span></a>
             </div>
         </div>
@@ -692,9 +633,74 @@
             </form>
             <form class="modal-form" id="form-account" data-form="account" novalidate hidden>
                 <p class="modal-hint">Jesteś zalogowany jako <b id="account-nick"></b> (<span id="account-email"></span>).</p>
+                <button type="button" class="btn btn-full btn-ghost" data-chat-open data-close>Wiadomości</button>
+                <button type="button" class="btn btn-full btn-ghost" data-admin-open data-close hidden>Panel admina</button>
                 <button type="submit" class="btn btn-full">Wyloguj</button>
                 <p class="form-msg" aria-live="polite"></p>
             </form>
+        </div>
+    </div>
+
+    <aside class="chat" id="chat" hidden aria-label="Wiadomości">
+        <div class="chat-backdrop" data-chat-close></div>
+        <div class="chat-box" role="dialog" aria-modal="true" aria-labelledby="chat-name">
+            <header class="chat-head">
+                <button type="button" class="chat-icon" id="chat-back" aria-label="Wróć do listy" hidden>←</button>
+                <div class="chat-who">
+                    <h3 id="chat-name">Wiadomości</h3>
+                    <p id="chat-status"></p>
+                </div>
+                <div class="chat-menu" id="chat-menu" hidden>
+                    <button type="button" class="chat-icon" id="chat-more" aria-label="Opcje rozmowy" aria-expanded="false">⋯</button>
+                    <div class="chat-pop" id="chat-pop" hidden>
+                        <button type="button" data-chat-act="block">Zablokuj</button>
+                        <button type="button" data-chat-act="report">Zgłoś gracza</button>
+                    </div>
+                </div>
+                <button type="button" class="chat-icon chat-x" data-chat-close aria-label="Zamknij">×</button>
+            </header>
+            <div class="chat-list" id="chat-list"></div>
+            <div class="chat-thread" id="chat-thread" hidden>
+                <div class="chat-msgs" id="chat-msgs"></div>
+                <p class="chat-typing" id="chat-typing" hidden><i></i><i></i><i></i><span></span></p>
+                <form class="chat-report" id="chat-report" hidden>
+                    <p>Co się stało? Admin zobaczy zgłoszenie i ostatnie wiadomości z tej rozmowy.</p>
+                    <textarea name="reason" rows="3" maxlength="500" placeholder="np. obraża, spamuje linkami"></textarea>
+                    <div class="chat-report-actions">
+                        <button type="button" class="btn btn-ghost" id="chat-report-cancel">Anuluj</button>
+                        <button type="submit" class="btn">Wyślij zgłoszenie</button>
+                    </div>
+                </form>
+                <div class="chat-blocked" id="chat-blocked" hidden>
+                    <p>Zablokowałeś tego gracza. Nie może do Ciebie pisać.</p>
+                    <button type="button" class="btn btn-ghost" data-chat-act="unblock">Odblokuj</button>
+                </div>
+                <form class="chat-form" id="chat-form">
+                    <textarea name="content" rows="1" maxlength="1000" placeholder="Napisz wiadomość" aria-label="Treść wiadomości"></textarea>
+                    <button type="submit" class="chat-send" aria-label="Wyślij">
+                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20l18-8L3 4l3 8zm3-8h8" /></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </aside>
+
+    <div class="admin" id="admin" hidden>
+        <div class="admin-box" role="dialog" aria-modal="true" aria-label="Panel admina">
+            <aside class="admin-side">
+                <img src="assets/logo-wordmark.png" alt="CGP">
+                <p class="admin-label">Panel admina</p>
+                <nav class="admin-nav" id="admin-nav">
+                    <button type="button" class="active" data-view="stats">Przegląd</button>
+                    <button type="button" data-view="users">Użytkownicy</button>
+                    <button type="button" data-view="ads">Ogłoszenia</button>
+                    <button type="button" data-view="reports">Zgłoszenia <span id="admin-reports"></span></button>
+                    <button type="button" data-view="tournaments">Turnieje</button>
+                    <button type="button" data-view="notice">Komunikat</button>
+                </nav>
+                <button type="button" class="btn btn-ghost admin-exit" id="admin-close">Wróć na stronę</button>
+            </aside>
+            <main class="admin-main" id="admin-main"></main>
         </div>
     </div>
 
@@ -703,5 +709,7 @@
 
     <script src="app.js"></script>
     <script src="veto.js"></script>
+    <script src="chat.js"></script>
+    <script src="admin.js"></script>
 </body>
 </html>
