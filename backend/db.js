@@ -13,6 +13,21 @@ export const pool = new pg.Pool({
 
 export const query = (text, params) => pool.query(text, params);
 
+export const transaction = async (handler) => {
+    const client = await pool.connect();
+    try {
+        await client.query("BEGIN");
+        const result = await handler(client.query.bind(client));
+        await client.query("COMMIT");
+        return result;
+    } catch (err) {
+        await client.query("ROLLBACK");
+        throw err;
+    } finally {
+        client.release();
+    }
+};
+
 const sqlFile = (name) => fs.readFile(path.join(import.meta.dirname, "..", "database", name), "utf8");
 
 export const loadSchemaAndSeed = async () => {

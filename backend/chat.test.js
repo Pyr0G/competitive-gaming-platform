@@ -3,6 +3,7 @@ import { once } from "node:events";
 import { after, mock, test } from "node:test";
 import express from "express";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 import { createTypingStore } from "./typing-state.js";
 
 const config = { jwtSecret: "test-only-session-key", appUrl: "http://localhost", production: false };
@@ -18,7 +19,9 @@ mock.module(new URL("./typing-state.js", import.meta.url).href, {
 });
 mock.module(new URL("./db.js", import.meta.url).href, {
     namedExports: {
+        transaction: async () => { throw new Error("Unexpected transaction"); },
         query: async (sql, params) => {
+            if (sql.startsWith("SELECT password_hash")) return { rows: [{ password_hash: "test-only-hash" }] };
             if (sql.startsWith("SELECT is_admin, banned_at")) {
                 return { rows: [{ is_admin: false, banned_at: params[0] === 4 ? new Date() : null }] };
             }
@@ -57,7 +60,7 @@ const request = (path, { user = 1, ip = "192.0.2.10", body } = {}) => fetch(`${o
     headers: {
         "content-type": "application/json",
         "x-forwarded-for": ip,
-        cookie: user ? `cgp_session=${jwt.sign({ id: user }, config.jwtSecret)}` : "",
+        cookie: user ? `cgp_session=${jwt.sign({ id: user, auth: crypto.createHmac("sha256", config.jwtSecret).update("cgp-session:test-only-hash").digest("hex") }, config.jwtSecret)}` : "",
     },
     body: body === undefined ? undefined : JSON.stringify(body),
 });

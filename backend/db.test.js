@@ -7,7 +7,7 @@ const config = {
     autoInitDatabase: false,
 };
 mock.module(new URL("./config.js", import.meta.url).href, { namedExports: { config } });
-const { pool, initDatabase, loadSchemaAndSeed } = await import("./db.js");
+const { pool, initDatabase, loadSchemaAndSeed, transaction } = await import("./db.js");
 after(() => pool.end());
 
 test("direct demo loading rejects production before executing SQL", async () => {
@@ -74,5 +74,28 @@ test("local demo initialization still loads schema and seed when enabled", async
     } finally {
         config.autoInitDatabase = false;
         query.mock.restore();
+    }
+});
+
+test("transactions pin one client and commit or roll back before releasing it", async () => {
+    for (const fail of [false, true]) {
+        const calls = [];
+        const client = {
+            query: async (sql) => {
+                calls.push(sql);
+                if (sql === "UPDATE test" && fail) throw new Error("write failed");
+                return { rows: [] };
+            },
+            release: () => calls.push("release"),
+        };
+        const connect = mock.method(pool, "connect", async () => client);
+        try {
+            const result = transaction(async (run) => { await run("UPDATE test"); return 7; });
+            if (fail) await assert.rejects(result, /write failed/);
+            else assert.equal(await result, 7);
+            assert.deepEqual(calls, ["BEGIN", "UPDATE test", fail ? "ROLLBACK" : "COMMIT", "release"]);
+        } finally {
+            connect.mock.restore();
+        }
     }
 });

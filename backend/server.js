@@ -12,7 +12,7 @@ const app = express();
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
 app.use(express.json({ limit: "20kb" }));
-app.use(readSession);
+app.use("/api", readSession);
 
 app.use("/api/auth", auth);
 app.use("/api/chat", chat);

@@ -71,4 +71,6 @@ Aktualizacja nie nadaje administratora po nicku. Produkcyjne konto administrator
 
 ## Testy kodu
 
+Ta wersja zmienia format ciasteczka sesji. Po aktualizacji użytkownicy logują się ponownie. Sesja jest powiązana z aktualnym skrótem hasła przez HMAC, więc udany reset hasła unieważnia wszystkie starsze sesje tego konta, także sesje wydane przez aktywację maila. Reset i aktywacja używają transakcji z blokadą konta; reset zużywa pozostałe linki do odzyskania hasła i aktywacji. Nie wymaga to nowych kolumn ani przebudowy bazy.
+
 W folderze `backend` uruchom `npm test` na Node 22 lub nowszym. Testy korzystają z lokalnych atrap bazy i poczty, bez wysyłania maili i bez połączenia z prawdziwą bazą. Sprawdzają wspólne limity dla różnych zapisów tego samego adresu, pojemność i wygasanie liczników, limit pracy nad hasłami oraz poprawne logowanie i reset hasła.
