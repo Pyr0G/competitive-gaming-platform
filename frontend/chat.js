@@ -19,6 +19,12 @@ let chatId = null;
 let lastMsg = 0;
 let chatTick = null;
 let chatBusy = false;
+let chatView = 0;
+let chatUserId = currentUser?.id;
+let unreadRequest = 0;
+let listRequest = 0;
+
+const isChatView = (view, id) => view === chatView && chatId === id && !chatBox.hidden && currentUser;
 
 const clock = (value) => {
     const d = new Date(value);
@@ -31,9 +37,11 @@ const setBadge = (n) => {
 };
 
 const refreshUnread = async () => {
-    if (!currentUser || !(await backend)) return;
+    const userId = currentUser?.id;
+    const request = ++unreadRequest;
+    if (!userId || !(await backend) || currentUser?.id !== userId) return;
     const data = await api("/chat/unread").catch(() => null);
-    if (data) setBadge(data.unread);
+    if (data && currentUser?.id === userId && request === unreadRequest) setBadge(data.unread);
 };
 
 const bubble = (m) => `<div class="msg ${m.mine ? "mine" : "theirs"}" data-id="${m.id}">
@@ -41,22 +49,17 @@ const bubble = (m) => `<div class="msg ${m.mine ? "mine" : "theirs"}" data-id="$
     <time>${clock(m.sent_at)}</time>
 </div>`;
 
-const showList = async () => {
-    chatId = null;
-    lastMsg = 0;
-    chatThread.hidden = true;
-    chatList.hidden = false;
-    chatBack.hidden = true;
-    chatMenu.hidden = true;
-    chatPop.hidden = true;
-    chatMore.setAttribute("aria-expanded", "false");
-    chatName.textContent = "Wiadomości";
-    chatStatus.textContent = "";
+const refreshList = async () => {
+    const view = chatView;
+    const request = ++listRequest;
     if (!(await backend)) {
-        chatList.innerHTML = `<p class="chat-empty">Czat działa na stronie online. Zaloguj się tam i napisz do kogoś z ogłoszenia.</p>`;
+        if (isChatView(view, null)) chatList.innerHTML = `<p class="chat-empty">Czat działa na stronie online. Zaloguj się tam i napisz do kogoś z ogłoszenia.</p>`;
         return;
     }
-    const { conversations } = await api("/chat").catch(() => ({ conversations: [] }));
+    if (!isChatView(view, null)) return;
+    const data = await api("/chat").catch(() => null);
+    if (!data || !isChatView(view, null) || request !== listRequest) return;
+    const { conversations } = data;
     setBadge(conversations.reduce((sum, c) => sum + c.unread, 0));
     chatList.innerHTML = conversations.length
         ? conversations.map((c) => `<button type="button" class="chat-item ${c.unread ? "fresh" : ""}" data-open-chat="${c.id}">
@@ -68,6 +71,21 @@ const showList = async () => {
             ${c.unread ? `<i>${c.unread}</i>` : ""}
         </button>`).join("")
         : `<p class="chat-empty">Tu pojawią się rozmowy. Wejdź w ogłoszenie i kliknij Napisz.</p>`;
+};
+
+const showList = async () => {
+    chatView++;
+    chatId = null;
+    lastMsg = 0;
+    chatThread.hidden = true;
+    chatList.hidden = false;
+    chatBack.hidden = true;
+    chatMenu.hidden = true;
+    chatPop.hidden = true;
+    chatMore.setAttribute("aria-expanded", "false");
+    chatName.textContent = "Wiadomości";
+    chatStatus.textContent = "";
+    await refreshList();
 };
 
 const paintThread = (data, append) => {
@@ -89,7 +107,16 @@ const paintThread = (data, append) => {
     if (!append || atBottom) chatMsgs.scrollTop = chatMsgs.scrollHeight;
 };
 
+const refreshThread = async () => {
+    const id = chatId;
+    const view = chatView;
+    if (!id || !isChatView(view, id)) return;
+    const data = await api(`/chat/${id}?after=${lastMsg}`);
+    if (isChatView(view, id)) paintThread(data, true);
+};
+
 const openThread = async (id) => {
+    const view = ++chatView;
     chatId = id;
     lastMsg = 0;
     chatList.hidden = true;
@@ -97,26 +124,34 @@ const openThread = async (id) => {
     chatBack.hidden = false;
     chatMenu.hidden = false;
     chatReport.hidden = true;
+    chatForm.hidden = true;
+    chatBlocked.hidden = true;
+    chatTyping.hidden = true;
+    chatName.textContent = "Wczytywanie...";
+    chatStatus.textContent = "";
+    chatInput.value = "";
+    chatInput.style.height = "";
     chatMsgs.innerHTML = "";
-    const data = await api(`/chat/${id}`).catch((err) => {
-        toast(err.message, "err");
-        return null;
+    await refreshThread().catch((err) => {
+        if (isChatView(view, id)) toast(err.message, "err");
     });
-    if (!data || chatId !== id) return;
-    paintThread(data, false);
-    refreshUnread();
+    if (isChatView(view, id)) refreshUnread();
 };
 
 const openChat = async (userId) => {
     if (!currentUser) return openModal("login", "Zaloguj się, żeby napisać do gracza.");
+    const view = ++chatView;
     if (!(await backend)) return toast("Czat działa na stronie online.", "err");
+    if (view !== chatView || !currentUser) return;
     chatBox.hidden = false;
     document.body.classList.add("chat-on");
     if (userId) {
         try {
             const data = await api("/chat/open", { userId: Number(userId) });
+            if (view !== chatView || !currentUser) return;
             await openThread(data.id);
         } catch (err) {
+            if (view !== chatView || !currentUser) return;
             toast(err.message, "err");
             await showList();
         }
@@ -126,6 +161,7 @@ const openChat = async (userId) => {
 };
 
 const closeChat = () => {
+    chatView++;
     chatBox.hidden = true;
     document.body.classList.remove("chat-on");
     chatId = null;
@@ -133,14 +169,17 @@ const closeChat = () => {
 };
 
 const pollChat = async () => {
-    if (chatBusy || chatBox.hidden || !currentUser) return;
+    if (chatBusy || !currentUser) return;
     chatBusy = true;
     try {
-        if (chatId) {
-            const data = await api(`/chat/${chatId}?after=${lastMsg}`);
-            if (chatId) paintThread(data, true);
-        } else {
+        if (!(await backend) || !currentUser) return;
+        if (chatBox.hidden) {
             await refreshUnread();
+        } else if (chatId) {
+            await refreshThread();
+            await refreshUnread();
+        } else {
+            await refreshList();
         }
     } catch {
         if (!currentUser) closeChat();
@@ -180,15 +219,19 @@ chatForm.addEventListener("submit", async (e) => {
     e.preventDefault();
     const content = chatInput.value.trim();
     if (!content || !chatId) return;
+    const id = chatId;
+    const view = chatView;
     chatInput.value = "";
     chatInput.style.height = "";
     try {
-        const data = await api(`/chat/${chatId}`, { content });
-        paintThread({ conversation: { nick: chatName.textContent, blocked: false, blocked_by: false, typing: false }, messages: [data.message] }, true);
+        await api(`/chat/${id}`, { content });
     } catch (err) {
-        chatInput.value = content;
+        if (!isChatView(view, id)) return;
+        if (!chatInput.value) chatInput.value = content;
         toast(err.message, "err");
+        return;
     }
+    if (isChatView(view, id)) await refreshThread().catch(() => {});
 });
 
 chatInput.addEventListener("keydown", (e) => {
@@ -247,12 +290,12 @@ $("#chat-report-cancel").addEventListener("click", () => {
 });
 
 document.addEventListener("cgp:user", () => {
-    if (!currentUser) {
+    if (chatUserId !== currentUser?.id || !currentUser) {
+        chatUserId = currentUser?.id;
         closeChat();
         setBadge(0);
-        return;
     }
-    refreshUnread();
+    if (currentUser) refreshUnread();
 });
 
 chatTick = setInterval(pollChat, 2500);
