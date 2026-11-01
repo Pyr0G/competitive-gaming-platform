@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { query } from "./db.js";
+import { query, transaction } from "./db.js";
 import { config } from "./config.js";
 import { sendVerifyMail, sendResetMail } from "./mail.js";
 import { limit, passwordWork } from "./resource-limits.js";
@@ -24,15 +24,21 @@ const hashToken = (token) => crypto.createHash("sha256").update(String(token)).d
 
 const publicUser = (u) => ({ id: Number(u.id), nick: u.nick, email: u.email, admin: Boolean(u.is_admin) });
 
-export const readSession = (req, res, next) => {
+const sessionKey = (passwordHash) => crypto.createHmac("sha256", config.jwtSecret).update(`cgp-session:${passwordHash}`).digest("hex");
+
+export const readSession = async (req, res, next) => {
+    req.userId = null;
     const cookie = (req.headers.cookie || "").split(";").map((c) => c.trim()).find((c) => c.startsWith(`${COOKIE}=`));
-    if (cookie) {
-        try {
-            req.userId = jwt.verify(decodeURIComponent(cookie.slice(COOKIE.length + 1)), config.jwtSecret).id;
-        } catch {
-            req.userId = null;
-        }
+    if (!cookie) return next();
+    let session;
+    try {
+        session = jwt.verify(decodeURIComponent(cookie.slice(COOKIE.length + 1)), config.jwtSecret);
+    } catch {
+        return next();
     }
+    if (!Number.isSafeInteger(session.id) || session.id <= 0 || typeof session.auth !== "string" || !/^[a-f0-9]{64}$/.test(session.auth)) return next();
+    const { rows } = await query("SELECT password_hash FROM users WHERE id = $1", [session.id]);
+    if (rows.length && crypto.timingSafeEqual(Buffer.from(session.auth, "hex"), Buffer.from(sessionKey(rows[0].password_hash), "hex"))) req.userId = session.id;
     next();
 };
 
@@ -50,8 +56,8 @@ export const requireAdmin = (req, res, next) => requireUser(req, res, () => {
     next();
 });
 
-const setSession = (res, userId) => {
-    res.cookie(COOKIE, jwt.sign({ id: userId }, config.jwtSecret, { expiresIn: "7d" }), {
+const setSession = (res, user) => {
+    res.cookie(COOKIE, jwt.sign({ id: Number(user.id), auth: sessionKey(user.password_hash) }, config.jwtSecret, { expiresIn: "7d" }), {
         httpOnly: true,
         sameSite: "lax",
         secure: config.production,
@@ -98,15 +104,27 @@ auth.post("/register", limit("register", 10, 15), passwordWork(async (req, res) 
 }));
 
 auth.get("/verify", async (req, res) => {
-    const { rows } = await query(
-        `UPDATE email_verifications SET used_at = NOW()
-         WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
-         RETURNING user_id`,
-        [hashToken(req.query.token)],
-    );
-    if (!rows.length) return res.redirect("/?verified=0");
-    await query("UPDATE users SET email_verified_at = NOW() WHERE id = $1", [rows[0].user_id]);
-    setSession(res, Number(rows[0].user_id));
+    const tokenHash = hashToken(req.query.token);
+    const user = await transaction(async (run) => {
+        const { rows: owners } = await run(
+            `SELECT u.id FROM users u JOIN email_verifications v ON v.user_id = u.id
+             WHERE v.token_hash = $1 AND v.used_at IS NULL AND v.expires_at > NOW()
+             FOR UPDATE OF u`,
+            [tokenHash],
+        );
+        if (!owners.length) return null;
+        const { rows } = await run(
+            `UPDATE email_verifications SET used_at = NOW()
+             WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+             RETURNING user_id`,
+            [tokenHash],
+        );
+        if (!rows.length) return null;
+        const { rows: users } = await run("UPDATE users SET email_verified_at = NOW() WHERE id = $1 RETURNING id, password_hash", [owners[0].id]);
+        return users[0] || null;
+    });
+    if (!user) return res.redirect("/?verified=0");
+    setSession(res, user);
     res.redirect("/?verified=1");
 });
 
@@ -135,7 +153,7 @@ auth.post("/login", limit("login", 20, 15), passwordWork(async (req, res) => {
         return res.status(403).json({ error: "Najpierw potwierdź maila. Link jest w skrzynce (zajrzyj też do spamu).", unverified: user.email });
     }
 
-    setSession(res, Number(user.id));
+    setSession(res, user);
     res.json({ user: publicUser(user) });
 }));
 
@@ -176,17 +194,31 @@ auth.post("/reset", limit("reset", 10, 15), passwordWork(async (req, res) => {
     const password = String(req.body.password || "");
     if (password.length < 8) return res.status(400).json({ error: "Hasło musi mieć co najmniej 8 znaków." });
 
-    const { rows } = await query(
-        `UPDATE password_resets SET used_at = NOW()
-         WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
-         RETURNING user_id`,
-        [hashToken(req.body.token)],
-    );
-    if (!rows.length) return res.status(400).json({ error: "Link wygasł albo był już użyty. Poproś o nowy." });
-
-    await query(
-        "UPDATE users SET password_hash = $1, email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $2",
-        [await bcrypt.hash(password, 10), rows[0].user_id],
-    );
+    const tokenHash = hashToken(req.body.token);
+    const passwordHash = await bcrypt.hash(password, 10);
+    const changed = await transaction(async (run) => {
+        const { rows: users } = await run(
+            `SELECT u.id FROM users u JOIN password_resets r ON r.user_id = u.id
+             WHERE r.token_hash = $1 AND r.used_at IS NULL AND r.expires_at > NOW()
+             FOR UPDATE OF u`,
+            [tokenHash],
+        );
+        if (!users.length) return false;
+        const { rows } = await run(
+            `UPDATE password_resets SET used_at = NOW()
+             WHERE token_hash = $1 AND used_at IS NULL AND expires_at > NOW()
+             RETURNING user_id`,
+            [tokenHash],
+        );
+        if (!rows.length) return false;
+        await run(
+            "UPDATE users SET password_hash = $1, email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $2",
+            [passwordHash, users[0].id],
+        );
+        await run("UPDATE password_resets SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL", [users[0].id]);
+        await run("UPDATE email_verifications SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL", [users[0].id]);
+        return true;
+    });
+    if (!changed) return res.status(400).json({ error: "Link wygasł albo był już użyty. Poproś o nowy." });
     res.json({ message: "Hasło zmienione. Możesz się zalogować." });
 }));

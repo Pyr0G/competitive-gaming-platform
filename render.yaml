@@ -12,6 +12,8 @@ services:
         value: production
       - key: NODE_VERSION
         value: "22"
+      - key: AUTO_INIT_DATABASE
+        value: "false"
       - key: JWT_SECRET
         generateValue: true
       - key: DATABASE_URL

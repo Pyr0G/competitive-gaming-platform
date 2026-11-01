@@ -4,11 +4,14 @@ import { after, mock, test } from "node:test";
 import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import crypto from "node:crypto";
 
 const config = { jwtSecret: "test-only-session-key", appUrl: "http://localhost", production: false };
 let queryHandler = async () => ({ rows: [] });
 mock.module(new URL("./config.js", import.meta.url).href, { namedExports: { config } });
-mock.module(new URL("./db.js", import.meta.url).href, { namedExports: { query: (...args) => queryHandler(...args) } });
+mock.module(new URL("./db.js", import.meta.url).href, { namedExports: {
+    query: (...args) => queryHandler(...args), transaction: (handler) => handler((...args) => queryHandler(...args)),
+} });
 mock.module(new URL("./mail.js", import.meta.url).href, {
     namedExports: { sendVerifyMail: async () => {}, sendResetMail: async () => {} },
 });
@@ -32,8 +35,9 @@ const post = (path, body = {}, ip = "192.0.2.1", cookie = "") => fetch(`${origin
 });
 
 test("actual auth and ads routes keep one allowance across route aliases", async () => {
-    queryHandler = async () => ({ rows: [{ is_admin: false, banned_at: null }] });
-    const cookie = `cgp_session=${jwt.sign({ id: 1 }, config.jwtSecret)}`;
+    queryHandler = async () => ({ rows: [{ is_admin: false, banned_at: null, password_hash: "test-only-hash" }] });
+    const authKey = crypto.createHmac("sha256", config.jwtSecret).update("cgp-session:test-only-hash").digest("hex");
+    const cookie = `cgp_session=${jwt.sign({ id: 1, auth: authKey }, config.jwtSecret)}`;
     const routes = [
         ["register", 10, {}, 400], ["login", 20, {}, 400],
         ["resend", 5, {}, 200], ["forgot", 5, {}, 400], ["reset", 10, {}, 400],
@@ -61,6 +65,7 @@ test("registration, login and reset preserve legitimate password and session beh
             return { rows: [user] };
         }
         if (sql.includes("SELECT id, nick, email, password_hash")) return { rows: [{ ...user, password_hash: passwordHash }] };
+        if (sql.includes("SELECT u.id FROM users u JOIN password_resets")) return { rows: [{ id: 1 }] };
         if (sql.includes("UPDATE password_resets")) return { rows: [{ user_id: 1 }] };
         if (sql.includes("UPDATE users SET password_hash")) passwordHash = params[0];
         return { rows: [] };
@@ -102,5 +107,5 @@ test("busy password handlers reject reset before consuming its token", async () 
         await Promise.all([one, two]);
     }
     assert.equal((await post("/auth/reset", { token: "unused", password: "new-password" }, "192.0.2.6")).status, 400);
-    assert.equal(resets, 1);
+    assert.equal(resets, 0);
 });

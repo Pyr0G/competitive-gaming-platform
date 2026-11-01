@@ -78,6 +78,7 @@ const showList = async () => {
     chatId = null;
     lastMsg = 0;
     chatThread.hidden = true;
+    chatList.innerHTML = '<p class="chat-empty">Wczytywanie rozmów...</p>';
     chatList.hidden = false;
     chatBack.hidden = true;
     chatMenu.hidden = true;
@@ -249,38 +250,46 @@ chatInput.addEventListener("input", () => {
 
 $$("[data-chat-act]").forEach((btn) => btn.addEventListener("click", async () => {
     if (!chatId) return;
+    const id = chatId;
+    const view = chatView;
     const act = btn.dataset.chatAct;
     try {
         if (act === "block") {
-            await api(`/chat/${chatId}/block`, {});
+            await api(`/chat/${id}/block`, {});
+            if (!isChatView(view, id)) return;
             toast("Gracz zablokowany. Nie napisze już do Ciebie.");
-            openThread(chatId);
+            openThread(id);
         } else if (act === "unblock") {
-            await api(`/chat/${chatId}/block`, undefined, "DELETE");
+            await api(`/chat/${id}/block`, undefined, "DELETE");
+            if (!isChatView(view, id)) return;
             toast("Gracz odblokowany.");
-            openThread(chatId);
+            openThread(id);
         } else if (act === "report") {
             chatReport.hidden = false;
             chatForm.hidden = true;
             chatPop.hidden = true;
         }
     } catch (err) {
-        toast(err.message, "err");
+        if (isChatView(view, id)) toast(err.message, "err");
     }
 }));
 
 chatReport.addEventListener("submit", async (e) => {
     e.preventDefault();
+    const id = chatId;
+    const view = chatView;
+    if (!id) return;
     const reason = chatReport.reason.value.trim();
     if (reason.length < 8) return toast("Dopisz, co się stało. Minimum 8 znaków.", "err");
     try {
-        await api(`/chat/${chatId}/report`, { reason });
+        await api(`/chat/${id}/report`, { reason });
+        if (!isChatView(view, id)) return;
         chatReport.reset();
         chatReport.hidden = true;
         chatForm.hidden = false;
         toast("Zgłoszenie poszło do admina.");
     } catch (err) {
-        toast(err.message, "err");
+        if (isChatView(view, id)) toast(err.message, "err");
     }
 });
 
@@ -293,6 +302,23 @@ document.addEventListener("cgp:user", () => {
     if (chatUserId !== currentUser?.id || !currentUser) {
         chatUserId = currentUser?.id;
         closeChat();
+        unreadRequest++;
+        listRequest++;
+        lastMsg = 0;
+        chatList.innerHTML = "";
+        chatMsgs.innerHTML = "";
+        chatInput.value = "";
+        chatInput.style.height = "";
+        chatReport.reset();
+        chatReport.hidden = true;
+        chatName.textContent = "";
+        chatStatus.textContent = "";
+        chatTyping.hidden = true;
+        $("span", chatTyping).textContent = "";
+        chatForm.hidden = true;
+        chatBlocked.hidden = true;
+        chatMenu.hidden = true;
+        chatMore.setAttribute("aria-expanded", "false");
         setBadge(0);
     }
     if (currentUser) refreshUnread();
