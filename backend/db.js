@@ -2,12 +2,10 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import pg from "pg";
 import { config } from "./config.js";
-
-const local = /localhost|127\.0\.0\.1/.test(config.databaseUrl);
+import { databaseOptions } from "./database-options.js";
 
 export const pool = new pg.Pool({
-    connectionString: config.databaseUrl,
-    ssl: local ? false : { rejectUnauthorized: false },
+    ...databaseOptions(config.databaseUrl),
     max: Number(process.env.PG_POOL_MAX) || 5,
 });
 

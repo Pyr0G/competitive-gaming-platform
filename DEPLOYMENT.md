@@ -12,6 +12,8 @@ Kontener aplikacji działa jako użytkownik `node`, ma system plików tylko do o
 
 ## Przygotowanie
 
+Połączenia do zdalnego PostgreSQL zawsze sprawdzają certyfikat i nazwę serwera. Użyj `sslmode=verify-full`; `sslmode=require` też zachowuje pełną weryfikację. Własne CA można wskazać przez `sslrootcert`. Tryby `no-verify`, `prefer`, `verify-ca` i zgodność libpq są odrzucane. Brak TLS jest dozwolony tylko dla `localhost`, `127.0.0.1`, `::1` oraz jawnego `sslmode=disable` dla usługi `db` z prywatnej sieci produkcyjnej. Dla loopback bez ustawień TLS zachowany jest lokalny tryb developerski.
+
 1. Zainstaluj aktualne Docker Engine i Compose w przeznaczonej do tego maszynie wirtualnej.
 2. Skopiuj `.env.production.example` do `.env.production`. Ustaw publiczny adres HTTPS, unikalny sekret sesji oraz różne hasła bazy i aplikacji. Użyj losowych ciągów co najmniej 32 znaków. Dla `APP_DB_PASSWORD` użyj cyfr i liter, np. losowego ciągu szesnastkowego, ponieważ hasło jest częścią adresu połączenia.
 3. Ogranicz uprawnienia `.env.production` do administratora, np. `chmod 600 .env.production`. Nigdy nie dodawaj tego pliku do Git. Nie zapisuj wyniku `docker compose config` z sekretami do publicznych logów.
