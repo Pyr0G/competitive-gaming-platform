@@ -1,78 +1,115 @@
-# Hosting na R740
+# Docker hosting
 
-Użyj osobnej maszyny wirtualnej z Linuksem i sieci, która nie ma dostępu do zarządzania R740, iDRAC, Hyper-V, Omady, NAS ani innych usług w LAN. Docker sam nie ustawia takiej izolacji. Na zaporze tej maszyny i sieci zablokuj połączenia aplikacji do tych adresów. Dostęp wychodzący ogranicz do wymaganych usług, w tym DNS, HTTPS do Brevo oraz aktualizacji wykonywanych przez administratora.
+CGP runs in Docker as a Node.js application and a separate PostgreSQL container. The backend serves the frontend and API from the same origin. This document covers container configuration and application maintenance.
 
-## Pliki
+## Files
 
-`docker-compose.yml` jest do lokalnej bazy z przykładowymi danymi. `docker-compose.production.yml` uruchamia aplikację i osobną bazę bez danych demo w osobnym projekcie Compose `cgp-production`. Nie łącz tych plików przez kilka opcji `-f`.
+| File | Purpose |
+| --- | --- |
+| `Dockerfile` | Application image based on Node.js 22 Alpine. |
+| `docker-compose.yml` | Local PostgreSQL 17 database with sample data. |
+| `docker-compose.production.yml` | Base production container configuration, using the `cgp-production` project. |
+| `.env.production.example` | Production environment variable template. |
+| `database/schema.sql` | Schema for a new, empty database. |
+| `database/init-app-role.sh` | Creates the restricted application role during initial database setup. |
+| `database/upgrade.sql` | Manual upgrade of an existing database. |
+| `database/seed.sql` | Demo data for local development only. |
 
-Produkcja publikuje tylko `127.0.0.1:3000`. Baza nie ma portu na hoście, działa w wewnętrznej sieci Dockera i nie dostaje dostępu do sieci aplikacji. Aplikacja używa roli `cgp_app`, a nie właściciela bazy. Hasło właściciela nie trafia do kontenera aplikacji. Połączenie z bazą bez TLS jest przeznaczone wyłącznie do tej prywatnej sieci w jednej maszynie wirtualnej.
+Do not combine the local and production Compose files. The local configuration loads sample accounts and tournaments; production initializes only the schema and application role.
 
-Kontener aplikacji działa jako użytkownik `node`, ma system plików tylko do odczytu, usunięte dodatkowe uprawnienia i tymczasowy katalog o rozmiarze 16 MiB. Aplikacja i baza mają osobne limity CPU, pamięci, procesów i obracane logi. Wolumen bazy nadal wymaga kontroli wolnego miejsca i limitu dysku maszyny wirtualnej.
+## Container settings
 
-## Przygotowanie
+The application image installs dependencies from `package-lock.json` using `npm ci --omit=dev --ignore-scripts`. There is no separate frontend build step. The app runs as the `node` user, with a read-only filesystem, all capabilities dropped, and `no-new-privileges`.
 
-Połączenia do zdalnego PostgreSQL zawsze sprawdzają certyfikat i nazwę serwera. Użyj `sslmode=verify-full`; `sslmode=require` też zachowuje pełną weryfikację. Własne CA można wskazać przez `sslrootcert`. Tryby `no-verify`, `prefer`, `verify-ca` i zgodność libpq są odrzucane. Brak TLS jest dozwolony tylko dla `localhost`, `127.0.0.1`, `::1` oraz jawnego `sslmode=disable` dla usługi `db` z prywatnej sieci produkcyjnej. Dla loopback bez ustawień TLS zachowany jest lokalny tryb developerski.
+| Limit | Application | PostgreSQL |
+| --- | --- | --- |
+| CPU | 1 CPU | 1 CPU |
+| Memory / combined memory and swap | 512 MiB / 512 MiB | 512 MiB / 512 MiB |
+| Processes | 64 | 128 |
+| Logs | 3 files of 10 MB each | 3 files of 10 MB each |
 
-1. Zainstaluj aktualne Docker Engine i Compose w przeznaczonej do tego maszynie wirtualnej.
-2. Skopiuj `.env.production.example` do `.env.production`. Ustaw publiczny adres HTTPS, unikalny sekret sesji oraz różne hasła bazy i aplikacji. Użyj losowych ciągów co najmniej 32 znaków. Dla `APP_DB_PASSWORD` użyj cyfr i liter, np. losowego ciągu szesnastkowego, ponieważ hasło jest częścią adresu połączenia.
-3. Ogranicz uprawnienia `.env.production` do administratora, np. `chmod 600 .env.production`. Nigdy nie dodawaj tego pliku do Git. Nie zapisuj wyniku `docker compose config` z sekretami do publicznych logów.
-4. Sprawdź konfigurację i zbuduj obraz:
+The app has a 16 MiB temporary `/tmp` directory with `noexec,nosuid` and a 256 MiB Node heap limit. PostgreSQL stores its data in a persistent volume. Memory and log limits do not limit the size of PostgreSQL data.
+
+## Application configuration
+
+Use `.env.production.example` as the template for private configuration. Keep secrets out of Git and the application image.
+
+| Variable | Requirement |
+| --- | --- |
+| `POSTGRES_DB` | Database name. |
+| `POSTGRES_PASSWORD` | Separate password for the database owner, `cgp_owner`. |
+| `APP_DB_PASSWORD` | Different password for the restricted `cgp_app` role. Use a URL-safe value, such as a random hexadecimal string. |
+| `JWT_SECRET` | Strong, unique session signing secret. |
+| `APP_URL` | Public HTTPS application URL, used in activation and password-reset links. |
+| `BREVO_API_KEY`, `MAIL_FROM` | Brevo API key and verified sender for email delivery. |
+
+Generate independent random passwords and a session secret, each at least 32 characters long. Production Compose sets `NODE_ENV=production` and `AUTO_INIT_DATABASE=false`, and constructs `DATABASE_URL` for `cgp_app`.
+
+The code rejects `AUTO_INIT_DATABASE=true` in production, but does not enforce a strong secret, an HTTPS URL, or configured email at startup. Check these values before release. Without the Brevo key or sender, activation and password-reset links are written to application logs instead of being delivered.
+
+## Why database upgrades are manual
+
+The application connects to the database as `cgp_app`. This role can read, insert, update, and delete data, and use sequences. It does not own the tables or have permission to change the database structure.
+
+`database/upgrade.sql` performs operations such as `ALTER TABLE` and table creation. Running it automatically at application startup with the restricted role would fail with a permission error and could prevent the service from starting. Giving the application the database owner's credentials would increase its privileges just to run migrations.
+
+Migrations therefore remain a separate, manual operation performed as the database owner, after taking a backup and verifying restoration. Restarting the app does not change the schema. The database owner's password is not passed to the application container.
+
+## New database versus existing volume
+
+On a new, empty volume, the PostgreSQL container runs `schema.sql`, followed by `init-app-role.sh`. This creates the schema and `cgp_app` role, without demo data or user accounts.
+
+Initialization scripts do not run again on an existing volume. Changing an SQL file or recreating the container does not upgrade that database.
+
+At startup, the backend checks whether the `users` table exists. If it is missing and initialization is disabled, startup fails. The presence of this table does not confirm that all migrations have been applied.
+
+`AUTO_INIT_DATABASE=true` allows schema and demo initialization only outside production. It is not a migration mechanism. `npm run db:reset` deletes the schema and reloads demo data; it refuses to run in production and is not an upgrade procedure.
+
+<a id="aktualizacja-istniejącej-bazy"></a>
+
+## Upgrading an existing database
+
+1. Prepare the new release and test it together with the migration against a restored database backup.
+2. Stop the application for the upgrade. The database must remain accessible to the administrator.
+3. Take a final backup and verify restoration into a separate database. Keep the backup independently of the production volume.
+4. Run `database/upgrade.sql` as the database owner, stopping on errors and using a single transaction.
+5. Only after a successful migration, start the prepared application release and verify its behavior.
+
+For a `psql` client already configured to connect to the correct database as its owner, run this from the release root:
 
 ```sh
-docker compose --env-file .env.production -f docker-compose.production.yml config --quiet
-docker compose --env-file .env.production -f docker-compose.production.yml build --pull
+psql -v ON_ERROR_STOP=1 --single-transaction --file=database/upgrade.sql
 ```
 
-Obraz instaluje pakiety z pliku blokady bez skryptów instalacyjnych. Przed wydaniem zweryfikuj pochodzenie obrazów bazowych i zapisz ich digesty. Aktualizacje obrazów i zależności wymagają ponownych testów.
+Check the target database and connection role before running the command. Administrator connection credentials remain outside the application configuration.
 
-## Pierwszy start i kontrola
+On error, the transaction is rolled back. Leave the app stopped and fix the cause before retrying. The upgrade can be repeated; it preserves data and existing administrator permissions.
 
-Uruchom dopiero po ustawieniu izolacji i zapory:
+The script grants an existing `cgp_app` role access to the added chat, block, report, and announcement tables and their sequences. It does not create that role or grant permission to change the database structure.
+
+Do not run `schema.sql`, `seed.sql`, or `db:reset` against an existing production database. Do not remove the volume to force initialization.
+
+## Accounts and sessions
+
+Production has no default administrator or seeded accounts using `haslo123`. The database owner grants `users.is_admin` to a specific `users.id` after checking the account owner's identity and confirming their email. The nickname `Admin` does not grant privileges.
+
+A session is a signed JWT in the `cgp_session` cookie, with `httpOnly`, `SameSite=Lax`, and `Secure` in production. Sessions are tied to the current password hash; a successful password reset invalidates the account's earlier sessions. A release that changes the session format requires users to sign in again.
+
+See the [database notes](database/README.md#aktualizacja-istniejącej-bazy) for more information about migrations and previous administrator grants.
+
+## Release checks and rollback
+
+Check `GET /api/health`, tournament and ad reads, login, chat, the admin panel, and delivery of activation and password-reset emails. The appearance of the page alone does not confirm a working database: the frontend can display sample tournaments or run forms in demo mode.
+
+Keep the previous application image and a verified database backup. Before restoring an older image, confirm that it supports the current schema. Rehearse database restoration in a separate environment and account for the loss of changes made since the backup. Do not use `down -v` or volume pruning to roll back a release.
+
+## Code tests
+
+From the repository root, using Node.js 22 or newer:
 
 ```sh
-docker compose --env-file .env.production -f docker-compose.production.yml up -d
-docker compose --env-file .env.production -f docker-compose.production.yml ps
-curl --fail http://127.0.0.1:3000/api/health
+npm ci --prefix backend
+npm test --prefix backend
 ```
 
-Inicjalizacja bazy działa tylko na pustym wolumenie. Istniejącej bazy te skrypty nie zmienią. Nie kasuj wolumenu, żeby wymusić inicjalizację. Zrób kopię, a ewentualne zmiany i nadanie uprawnień wykonaj osobno jako właściciel bazy. Aplikacja z `AUTO_INIT_DATABASE=false` nie tworzy tabel ani danych demo przy starcie i zakończy pracę, jeśli brakuje tabeli użytkowników.
-
-Sprawdź w działających kontenerach użytkownika, montowania, usunięte uprawnienia, `no-new-privileges`, limity CPU, pamięci, procesów i logów. Z innego komputera sprawdź brak dostępu do portów 3000 i 5432. Nie otwieraj ich na routerze.
-
-Cloudflare Tunnel uruchom na tej samej maszynie wirtualnej co Docker i skieruj wyłącznie do `http://127.0.0.1:3000`. Zdalny konektor ani osobny kontener nie korzystają z tej samej pętli lokalnej. Nie używaj trybu sieci hosta ani montowania gniazda Dockera w aplikacji.
-
-Przed udostępnieniem potwierdź przez rzeczywisty tunel, że Express widzi prawidłowy adres klienta przy `trust proxy=1`. Żądania z dwóch różnych komputerów powinny mieć osobne limity, a własny nagłówek `X-Forwarded-For` nie może pozwalać na wybór dowolnego adresu. Jeśli układ proxy tego nie zapewnia, popraw zaufanie do proxy przed publikacją.
-
-Sprawdź też blokadę połączeń z kontenera do sieci zarządzania i pozostałego LAN. Zwykła sieć `web` daje aplikacji dostęp wychodzący i nie jest zaporą dla LAN. Cloudflare nie zastępuje tej zapory.
-
-Przed zbieraniem prawdziwych danych wykonaj kopię bazy na osobny nośnik lub host i sprawdź odtworzenie w osobnej bazie. Wolumen Dockera nie jest samodzielną kopią zapasową.
-
-## Aktualizacja istniejącej bazy
-
-Pliki inicjalizacyjne nie uruchamiają się ponownie na istniejącym wolumenie. Przed aktualizacją zrób kopię bazy poza tym wolumenem i sprawdź jej odtworzenie w osobnej bazie. Nie kasuj wolumenu i nie wgrywaj danych demo.
-
-W głównym folderze repo na maszynie z R740 zatrzymaj aplikację. Baza musi pozostać uruchomiona. Następnie wykonaj aktualizację jako `cgp_owner` przez lokalny kontener bazy:
-
-```sh
-docker compose --env-file .env.production -f docker-compose.production.yml stop app
-docker compose --env-file .env.production -f docker-compose.production.yml exec -T db sh -c 'exec psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 --single-transaction' < database/upgrade.sql
-```
-
-Jeśli `psql` zwróci błąd, transakcja zostanie wycofana. Popraw przyczynę przed wznowieniem aplikacji. Aktualizacja nadaje istniejącej roli `cgp_app` dostęp do nowych tabel i sekwencji, bez prawa zmiany struktury bazy. Nie wymaga hasła właściciela w kontenerze aplikacji.
-
-Po udanej aktualizacji uruchom aplikację i sprawdź jej stan:
-
-```sh
-docker compose --env-file .env.production -f docker-compose.production.yml up -d --build app
-docker compose --env-file .env.production -f docker-compose.production.yml ps
-curl --fail http://127.0.0.1:3000/api/health
-```
-
-Aktualizacja nie nadaje administratora po nicku. Produkcyjne konto administratora wybierz ręcznie po sprawdzeniu jego właściciela i potwierdzeniu maila, a uprawnienia nadaj jako właściciel bazy po `users.id`. Szczegóły zachowania aktualizacji i kontroli wcześniejszych nadań są w [opisie bazy](database/README.md#aktualizacja-istniejącej-bazy).
-
-## Testy kodu
-
-Ta wersja zmienia format ciasteczka sesji. Po aktualizacji użytkownicy logują się ponownie. Sesja jest powiązana z aktualnym skrótem hasła przez HMAC, więc udany reset hasła unieważnia wszystkie starsze sesje tego konta, także sesje wydane przez aktywację maila. Reset i aktywacja używają transakcji z blokadą konta; reset zużywa pozostałe linki do odzyskania hasła i aktywacji. Nie wymaga to nowych kolumn ani przebudowy bazy.
-
-W folderze `backend` uruchom `npm test` na Node 22 lub nowszym. Testy korzystają z lokalnych atrap bazy i poczty, bez wysyłania maili i bez połączenia z prawdziwą bazą. Sprawdzają wspólne limity dla różnych zapisów tego samego adresu, pojemność i wygasanie liczników, limit pracy nad hasłami oraz poprawne logowanie i reset hasła.
+The tests use database and mail mocks, plus a local TLS server. They cover authentication and account recovery, database initialization, PostgreSQL TLS verification, request and password-work limits, chat, and browser account, chat, and admin state. They do not send real emails or connect to the production database. They do not replace migration and restore testing.

@@ -1,161 +1,111 @@
 # Competitive Gaming Platform
 
-A platform for CS2 tournaments, team recruitment, and player communication. The planned experience combines team registration, a recruitment board, private chat, and match results imported from FACEIT.
+CGP is a CS2 tournament and recruitment platform with a Polish interface. A single Node.js service serves the frontend and `/api` from the same origin, backed by PostgreSQL. Production runs in Docker.
 
-The first release focuses on helping players find a team and complete a tournament. Rankings and Elo are deferred until there is an active player base and match history.
+## Current functionality
 
-## Project status
-
-**Planning stage.** This repository currently contains the brief and project documentation. Application code, a selected technology stack, and setup instructions are not available yet. The features below describe the intended product, not implemented functionality.
-
-## Purpose and player journey
-
-The platform aims to address three recurring problems in tournaments: incomplete rosters, difficulty contacting new teammates, and manual result reporting that leads to disputes and bracket corrections.
-
-The intended player journey is:
-
-1. Create an account with a username and password, without email verification.
-2. Add a FACEIT account, skill level, preferred role, and availability to the profile.
-3. Post a looking-for-team advertisement or respond to a team's recruitment post.
-4. Discuss the opportunity with a captain through private chat.
-5. Join the team using an invitation code or link.
-6. Have the captain register the complete roster for a tournament.
-7. Play the match on FACEIT.
-8. Have the captain submit the match link so the platform can validate participants, import the result, and advance the winner in the bracket.
-
-## MVP scope
-
-The minimum viable product (MVP) must support the complete journey above.
-
-### Accounts and profiles
-
-- Registration using a unique username, password, and password confirmation.
-- Login, persistent authentication, logout, and password changes while signed in.
-- Profiles containing a FACEIT account, skill level, preferred role, availability, short description, team, and tournament history.
-- Password hashing, with BCrypt given as an example in the brief, and login attempt limits.
-- An authentication mechanism to be selected; the brief suggests JWT as one option.
-- Account recovery without email: either a recovery code issued at registration or a manual administrator reset. The team still needs to choose an approach.
-
-### Teams and invitations
-
-- Create a team with a name, short tag, and optional logo. The creator becomes its captain.
-- A team page showing its roster, tournament history, and results.
-- Join through a unique invitation code or link. Generating a replacement invalidates the previous invitation.
-- Captains can invite and remove players, transfer captaincy, close recruitment, register the team for tournaments, and submit match links.
-- A starting roster of five players. The brief proposes up to two substitutes; the final substitute limit remains open.
-- A player cannot represent two teams in the same tournament.
-
-### Recruitment board (LFG)
-
-The Looking for Group (LFG) board supports both players looking for teams and teams looking for players.
-
-- Posts include the game (initially CS2), skill level or rank, role, availability, language, and a short description.
-- Filters by role, skill level, and playing schedule.
-- A message action that opens a private conversation with the author.
-- Posts expire, can be refreshed, and can be closed when recruitment is complete. The proposed expiry period is seven days, subject to confirmation.
-
-### Private chat
-
-- One-to-one conversations opened from recruitment posts or player profiles.
-- Real-time message delivery without refreshing the page.
-- A conversation list with unread message indicators.
-- Message history stored in the database and retained across refreshes and logins.
-- User blocking and reporting for spam or abusive behavior.
-
-### Tournaments and brackets
-
-- Administrators create tournaments with a name, game, date, capacity, BO1 or BO3 match format, and rules.
-- Captains register teams, with roster completeness checked by the platform.
-- A visible participant list and remaining slot count.
-- Manual or scheduled registration closure.
-- Random pairings and a single-elimination bracket generated after registration closes.
-- Byes when the bracket is not full.
-- Match states: scheduled, ready to play, awaiting result, completed, or disputed.
-- Administrator tools for tournament management, disputes, and fallback manual result entry.
-
-## FACEIT result import
-
-Matches take place on FACEIT. The platform imports their results from match links instead of requiring screenshot submissions.
-
-For each submitted link, the system should:
-
-1. Validate the link and extract the match identifier.
-2. Retrieve match data from the FACEIT API.
-3. Confirm that the match has finished.
-4. Compare its participants with the players on both teams registered for the platform match.
-5. Save the score and winner, then advance the winning team to the next round.
-
-| Situation | Expected behavior |
+| Area | Implemented behavior |
 | --- | --- |
-| Invalid link | Reject the submission and display an error. |
-| Match still in progress | Ask the user to retry after the match finishes. |
-| Participants do not match the registered teams | Mark the match as disputed and refer it to an administrator. |
-| FACEIT match already submitted | Reject the duplicate; one FACEIT match can correspond to only one platform match. |
-| FACEIT unavailable or match played elsewhere | Allow an administrator to enter the result manually. |
+| Accounts | Registration with email activation, login by nickname or email, logout, activation resend, and password recovery. Passwords use bcrypt; signed JWT sessions use an httpOnly cookie, with Secure enabled in production. Resetting a password invalidates existing sessions. |
+| Recruitment | Browse and filter player/team ads, publish and close your own ads. Team recruitment requires captain status. Ads expire after seven days, with at most three active ads per author. |
+| Private chat | Stored one-to-one conversations, short polling, unread counts, typing indicators, blocking, and reports. |
+| Tournaments | Read tournament data, registered teams, brackets, and scores from the database. |
+| Ranking | Team standings calculated in the browser from completed tournament matches. This is not an Elo system. |
+| Administration | User search, bans, admin permissions, manual email verification, ad moderation, report resolution, tournament cancellation/registration closure, and a site banner. |
 
-Integration design must account for stable FACEIT player identifiers rather than relying only on changeable nicknames, as well as API request limits. Account linking, participant validation, substitute handling, and BO3 result handling need further definition before implementation.
+The application is still a partial implementation of the product brief. Team creation and invitations, player profile editing, tournament creation and team registration, and actual FACEIT result import do not have backend endpoints yet. The schema includes data structures for these areas, but that does not make the workflows available.
 
-## Delivery roadmap
+FACEIT link submission currently simulates a result in the browser and does not save it. Map veto is also client-only. Opening `frontend/index.html` from disk runs the interface in demo mode. The frontend also falls back to demo behavior when its initial health check fails; an empty tournament response keeps the bundled sample tournaments visible. A rendered page or sample bracket alone does not verify a working backend or real tournament data.
 
-| Stage | Scope | Completion criteria |
-| --- | --- | --- |
-| 0. Planning | Select backend tools suitable for the FACEIT API and chat, design the database, and divide responsibilities. | The team agrees on technologies, ownership, and a database diagram. |
-| 1. Accounts and teams | Registration, login, profiles, team creation, and invitations. | A user can create an account and team, then invite another player using a code. |
-| 2. Recruitment and chat | Recruitment posts, filters, real-time private chat, blocking, and reporting. | A player publishes a post and a captain starts a conversation that works without page refreshes. |
-| 3. Tournaments and FACEIT | Tournament creation, registration, brackets, result import, and administrator tools. | An eight-team test tournament runs from registration through the final, with results imported from match links. |
-| 4. Deployment | Publish the application and invite initial testers. | The application is available at a public address and used by its first players. |
+## Stack and structure
 
-## Preliminary data model
+- Node.js 22 for the production image and test baseline, Express 5, PostgreSQL 17.
+- Plain HTML, CSS, and JavaScript, with no frontend build step.
+- Brevo HTTP API for activation and password-reset mail. If either the API key or sender is missing, links are written to server logs instead of being delivered.
 
-These entities come from the brief and form a starting point for database design. They are not an implemented schema or migrations.
-
-| Entity | Purpose |
+| Path | Purpose |
 | --- | --- |
-| `Users` | Accounts, password hashes, profile details, FACEIT identity, and registration date. |
-| `Teams` | Team name, tag, captain, invitation, and recruitment status. |
-| `TeamMembers` | Team membership and starting or substitute roster position. |
-| `Advertisements` | Recruitment post author, type, level, role, availability, and expiry. |
-| `Conversations` | Private conversations between users. |
-| `Messages` | Sender, recipient, content, timestamp, and read status. |
-| `Tournaments` | Game, date, team capacity, format, and registration status. |
-| `Matches` | Participating teams, bracket round, score, FACEIT link, and match status. |
+| `frontend/` | Site, tournament views, recruitment, ranking, accounts, map veto, chat, admin panel, and assets. |
+| `backend/` | Express server, API routes, authentication, mail, database access, request limits, and automated tests. |
+| `database/` | Fresh schema, local demo seed, manual upgrades, restricted application-role initialization, and [database notes](database/README.md). |
+| `Dockerfile` | Production application image using Node.js 22 Alpine and the locked dependencies. |
+| `docker-compose.yml` | Local PostgreSQL with demo data, published only at `127.0.0.1:5432`. |
+| `docker-compose.production.yml` | Application and private PostgreSQL, without demo data, in project `cgp-production`. |
+| `.env.example` / `.env.production.example` | Local and production configuration templates. |
+| `DEPLOYMENT.md` | [Docker hosting, isolation, maintenance, and recovery rules](DEPLOYMENT.md). |
+| `render.yaml` | Alternative Render configuration, not the current Docker deployment procedure. |
 
-## Technology and setup
+## Run locally
 
-No technology stack has been selected. The brief lists the following candidates for consideration:
+Install Node.js 22 and Docker with Compose. From the repository root:
 
-| Area | Options mentioned in the brief |
+```sh
+cp .env.example .env
+```
+
+Set a local database password in both `POSTGRES_PASSWORD` and `DATABASE_URL`, and replace `JWT_SECRET` with a random local secret. Keep `APP_URL=http://localhost:3000`. Then run:
+
+```sh
+docker compose up -d db
+cd backend
+npm ci
+npm run dev
+```
+
+Open [localhost:3000](http://localhost:3000). The development command loads the root `.env` and watches the backend for changes. The local Compose file starts only the database; Node serves the application separately.
+
+On a new local database, Compose loads `schema.sql` and `seed.sql`. With `AUTO_INIT_DATABASE=true`, the backend can also initialize an empty database outside production. Neither mechanism upgrades an existing database. For an existing local database, back it up and apply `database/upgrade.sql` as its owner before starting the updated application; see the [database upgrade notes](database/README.md#aktualizacja-istniejącej-bazy).
+
+Seeded local accounts use `haslo123`, including `Admin` and `bartek@example.com`. These are demo credentials only; production initialization creates no users. Without Brevo configuration, local activation/reset links appear in the backend terminal.
+
+`npm run db:reset` from `backend/` deletes the local database schema and reloads demo data. It refuses to run in production and must never be used to upgrade a deployment.
+
+## Configuration
+
+| Variable | Purpose |
 | --- | --- |
-| Backend and real-time chat | Node.js with Socket.io, or C#/.NET with SignalR. |
-| Database hosting | Supabase or Neon. |
-| Backend hosting | A VPS or Render, with support for WebSocket connections. |
-| Frontend hosting | Vercel or Netlify. |
+| `DATABASE_URL` | Backend PostgreSQL connection. Local development uses loopback; production Compose constructs it for the restricted `cgp_app` role. |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` | Local database initialization. Production fixes the owner to `cgp_owner` and uses its own owner password. |
+| `APP_DB_PASSWORD` | Separate production password for `cgp_app`; never use the database owner's password in the app. |
+| `JWT_SECRET` | Session signing secret. Set a strong, unique value in production. |
+| `APP_URL` | Public application origin used in activation/reset links and redirects. Production must use its public HTTPS address. |
+| `AUTO_INIT_DATABASE` | Allows empty-database schema/demo initialization only outside production. Production Compose sets it to `false`; production rejects `true`. |
+| `BREVO_API_KEY`, `MAIL_FROM` | Brevo API key and verified sender required for actual mail delivery. |
+| `NODE_ENV`, `PORT` | Production Compose sets `production` and `3000`. |
 
-FACEIT result import will require API access and an application key. Configuration details will be documented after the stack and integration approach are selected.
+Keep environment files private and out of Git. The current code does not enforce strong production secrets, HTTPS `APP_URL`, or configured mail at startup; these are operator requirements. Remote PostgreSQL connections verify TLS certificates and server names. The production `db` service uses explicitly disabled TLS only inside its private Docker network; see [deployment rules](DEPLOYMENT.md).
 
-There is currently no application to run or test suite to execute. Installation, configuration, and testing instructions should be added alongside the implementation.
+## Production hosting
 
-## Open decisions
+Production uses separate application and PostgreSQL containers. The app runs as a non-root user with a read-only filesystem, dropped capabilities, and CPU, memory, process, and log limits. Production initialization loads the schema and a restricted database role without demo data or default accounts.
 
-Before implementation, the team needs to resolve:
+The application connects as `cgp_app`, which can work with data but cannot alter the schema. Running `upgrade.sql` automatically at startup would fail on owner-only operations and could prevent the app from starting. Upgrades remain a manual database-owner operation after backup and restore verification; the app does not receive the owner's credentials.
 
-- Final MVP scope, technology choices, and division of work.
-- Account recovery without email and the authentication mechanism.
-- Linking profiles to stable FACEIT player identifiers and validating match participants, including substitutes.
-- Importing and resolving BO3 series results.
-- Substitute limits and recruitment post expiry; the brief's values are proposals.
-- Multiple-account abuse prevention. The brief suggests considering per-IP limits or restricting a FACEIT account to one platform profile.
-- How blocking, reports, disputes, and API limits fit into the detailed data model and administrator workflows.
+Use the [deployment guide](DEPLOYMENT.md) for container settings, production configuration, manual database upgrades, and recovery rules.
 
-## Beyond the MVP
+## API overview
 
-Planned areas for later expansion, once the platform has active users and match history:
+| Prefix or endpoint | Purpose |
+| --- | --- |
+| `GET /api/health` | Checks the server's database connection. |
+| `GET /api/tournaments` | Tournament list, teams, brackets, and match data. |
+| `GET /api/announcement` | Active site banner. |
+| `/api/ads` | Read active ads; authenticated creation and closure of owned ads. |
+| `/api/auth` | Register, verify, resend, login, logout, current user, forgot password, and reset password. |
+| `/api/chat` | Conversations, unread counts, messages, typing, blocking, and reports; requires login. |
+| `/api/admin` | Moderation, users, reports, tournament controls, statistics, and banners; requires an admin account. |
 
-- Player and team rankings using Elo or Glicko-2.
-- FACEIT statistics such as K/D, headshot percentage, map performance, and match MVPs.
-- Badges, seasons, and standings.
-- Group stages and double-elimination brackets.
-- Additional games, such as Valorant or League of Legends.
-- Team chat, match chat, and invitations directly from conversations.
-- Notifications and a Discord bot.
-- Optional Steam or FACEIT login.
+There are currently no team-management, tournament-registration, or FACEIT import endpoints. Sessions use the `cgp_session` cookie. Authentication and selected write operations have per-operation/per-client limits, with a shared limit of two concurrent password operations per application process.
+
+## Tests and contribution rules
+
+From the repository root, using Node.js 22 or newer:
+
+```sh
+npm ci --prefix backend
+npm test --prefix backend
+```
+
+The tests use database/mail mocks and a local TLS test server. They do not require a production database or send real mail. They cover authentication and recovery, database initialization and TLS policy, request limits, chat, and frontend account/chat/admin state. Migration and backup restoration still need separate verification.
+
+Keep code simple, without code comments. UI copy is casual Polish, without long dashes or middle dots. Use small commits with English messages prefixed by `frontend:`, `backend:`, `database:`, or `docs:`. Database changes belong in the schema, seed, and upgrade files, with their behavior described in `database/README.md`. Existing production databases are upgraded manually as the database owner, never by app startup or a reset.
