@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Email **contact@pyr0g.com** with the subject **CGP security report**.
+Use GitHub's [private vulnerability reporting form](https://github.com/Pyr0G/competitive-gaming-platform/security/advisories/new) to submit a report to the repository maintainers.
 
 Please report vulnerabilities privately rather than opening a public issue or pull request containing exploit details.
 
