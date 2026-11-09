@@ -898,12 +898,9 @@ const send = async (form, path, body, demoText) => {
 
 const loginButton = $(".btn-login");
 const registerButton = $(".auth > .btn[data-modal=register]");
-let userRequest = 0;
 
-const setUser = (user, broadcast = false) => {
-    userRequest++;
+const setUser = (user) => {
     currentUser = user;
-    document.body.classList.remove("session-check");
     $("span", loginButton).textContent = user ? user.nick : "Zaloguj";
     loginButton.dataset.modal = user ? "account" : "login";
     loginButton.classList.toggle("logged", Boolean(user));
@@ -914,11 +911,6 @@ const setUser = (user, broadcast = false) => {
     $("[data-admin-open]", modal).hidden = !user?.admin;
     $("#chat-btn").hidden = !user;
     document.dispatchEvent(new CustomEvent("cgp:user"));
-    if (broadcast) {
-        try {
-            localStorage.setItem("cgp-auth-change", `${Date.now()}:${Math.random()}`);
-        } catch {}
-    }
 };
 
 const toasts = $("#toasts");
@@ -932,32 +924,7 @@ const toast = (text, type = "ok") => {
     setTimeout(() => el.remove(), 3600);
 };
 
-const refreshUser = () => {
-    const request = ++userRequest;
-    return api("/auth/me").then((data) => {
-        if (request === userRequest) setUser(data.user);
-    }).catch(() => {
-        if (request === userRequest) setUser(null);
-    });
-};
-
-const reconcileSession = () => {
-    document.body.classList.add("session-check");
-    return refreshUser();
-};
-
-window.addEventListener("storage", (e) => {
-    if (e.key !== "cgp-auth-change") return;
-    setUser(null);
-    reconcileSession();
-});
-window.addEventListener("focus", reconcileSession);
-window.addEventListener("pageshow", (e) => {
-    if (e.persisted) reconcileSession();
-});
-document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible") reconcileSession();
-});
+const refreshUser = () => api("/auth/me").then((data) => setUser(data.user)).catch(() => {});
 
 $("#form-login").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -969,7 +936,7 @@ $("#form-login").addEventListener("submit", async (e) => {
     try {
         const data = await send(form, "/auth/login", { login, password: form.password.value }, `logowanie działa po wejściu na stronę online. Cześć, <b>${esc(login)}</b>!`);
         if (!data) return;
-        setUser(data.user, true);
+        setUser(data.user);
         formMessage(form, `Cześć <b>${esc(data.user.nick)}</b>, jesteś zalogowany.`, "ok");
         form.reset();
         setTimeout(closeModal, 900);
@@ -1038,7 +1005,7 @@ $("#form-newpass").addEventListener("submit", async (e) => {
 $("#form-account").addEventListener("submit", async (e) => {
     e.preventDefault();
     await api("/auth/logout", {}).catch(() => {});
-    setUser(null, true);
+    setUser(null);
     closeModal();
     toast("Wylogowano. Do zobaczenia!");
     loadAds().catch(() => {});
@@ -1271,12 +1238,18 @@ const setNoticeHeight = () => {
     document.documentElement.style.setProperty("--notice", notice.hidden ? "0px" : `${notice.offsetHeight}px`);
 };
 
+let noticeItem = null;
+
 const showNotice = (item) => {
-    const hide = !item || localStorage.getItem("cgp-notice") === String(item.id);
+    if (item !== undefined) noticeItem = item;
+    const canHide = Boolean(currentUser);
+    const dismissed = canHide && noticeItem && localStorage.getItem("cgp-notice") === String(noticeItem.id);
+    const hide = !noticeItem || dismissed;
     notice.hidden = hide;
+    $("#notice-x").hidden = hide || !canHide;
     if (!hide) {
-        notice.dataset.id = item.id;
-        $("#notice-text").textContent = item.content;
+        notice.dataset.id = noticeItem.id;
+        $("#notice-text").textContent = noticeItem.content;
     }
     setNoticeHeight();
 };
@@ -1284,22 +1257,23 @@ const showNotice = (item) => {
 const loadNotice = () => api("/announcement").then((data) => showNotice(data.announcement)).catch(() => {});
 
 $("#notice-x").addEventListener("click", () => {
-    localStorage.setItem("cgp-notice", notice.dataset.id);
+    if (!currentUser || !noticeItem) return;
+    localStorage.setItem("cgp-notice", noticeItem.id);
     notice.classList.add("out");
     setTimeout(() => {
         notice.classList.remove("out");
-        showNotice(null);
+        showNotice(noticeItem);
     }, 300);
 });
 
+document.addEventListener("cgp:user", () => showNotice());
 window.addEventListener("resize", setNoticeHeight);
 
 const loadData = async () => {
     if (!(await backend)) return;
 
-    const request = ++userRequest;
     const [tournaments, me] = await Promise.allSettled([api("/tournaments"), api("/auth/me")]);
-    if (me.status === "fulfilled" && request === userRequest) setUser(me.value.user, new URLSearchParams(location.search).get("verified") === "1");
+    if (me.status === "fulfilled") setUser(me.value.user);
     if (tournaments.status === "fulfilled") applyTournaments(tournaments.value);
     loadNotice();
 
