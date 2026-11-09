@@ -459,6 +459,10 @@ h1, h2, h3, h4 {
     border: 0;
 }
 
+.notice-x:hover {
+    color: #fff;
+}
+
 .btn-login {
     display: inline-flex;
     align-items: center;
@@ -3898,7 +3902,7 @@ body.admin-on {
 
 .admin-box {
     display: grid;
-    grid-template-columns: 240px 1fr;
+    grid-template-columns: 260px 1fr;
     height: 100%;
 }
 
@@ -3906,17 +3910,19 @@ body.admin-on {
     display: flex;
     flex-direction: column;
     gap: 18px;
-    padding: 24px 18px;
-    background: #101920;
+    padding: 24px 16px;
+    background: linear-gradient(180deg, #121b24, #0d141b);
     border-right: 1px solid var(--line);
 }
 
 .admin-side img {
     height: 28px;
     width: auto;
+    margin: 0 8px;
 }
 
 .admin-label {
+    margin: 0 8px;
     color: var(--accent);
     font-family: var(--head);
     font-size: 12px;
@@ -3927,27 +3933,52 @@ body.admin-on {
 .admin-nav {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
 }
 
 .admin-nav button {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 12px;
+    position: relative;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 2px 10px;
+    padding: 12px 14px;
     color: var(--text);
     text-align: left;
-    background: none;
-    border: 0;
+    background: transparent;
+    border: 1px solid transparent;
     font-family: var(--head);
-    font-weight: 600;
+    transition: background 0.2s, border-color 0.2s;
+}
+
+.admin-nav button b {
+    grid-column: 1;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.admin-nav button em {
+    grid-column: 1;
+    color: var(--muted);
+    font-style: normal;
+    font-family: var(--body);
+    font-size: 12px;
+    font-weight: 400;
 }
 
 .admin-nav button.active,
 .admin-nav button:hover {
-    background: rgba(255, 70, 85, 0.12);
+    background: rgba(255, 70, 85, 0.1);
+    border-color: rgba(255, 70, 85, 0.28);
+}
+
+.admin-nav button.active {
+    box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .admin-nav span {
+    grid-column: 2;
+    grid-row: 1 / span 2;
+    align-self: center;
     min-width: 18px;
     padding: 0 6px;
     background: var(--accent);
@@ -3958,26 +3989,52 @@ body.admin-on {
 }
 
 .admin-exit {
-    margin-top: auto;
+    margin: auto 8px 0;
 }
 
 .admin-main {
     overflow: auto;
-    padding: 28px 32px;
+    padding: 32px 36px;
+    background:
+        radial-gradient(600px 220px at 100% 0%, rgba(255, 70, 85, 0.06), transparent 70%),
+        var(--bg-2);
 }
 
 .admin-head {
     display: flex;
     flex-wrap: wrap;
     justify-content: space-between;
-    align-items: flex-end;
+    align-items: flex-start;
     gap: 16px;
-    margin-bottom: 22px;
+    margin-bottom: 24px;
 }
 
 .admin-head h2 {
     font-family: var(--head);
     font-size: 28px;
+}
+
+.admin-head p {
+    margin-top: 6px;
+    max-width: 520px;
+    color: var(--muted);
+}
+
+.admin-pill {
+    padding: 6px 12px;
+    border: 1px solid var(--line-2);
+    color: var(--muted);
+    font-family: var(--head);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+}
+
+.admin-pill.on {
+    border-color: rgba(46, 229, 157, 0.45);
+    color: var(--green);
+    background: rgba(46, 229, 157, 0.08);
 }
 
 .admin-kpis {
@@ -3992,10 +4049,33 @@ body.admin-on {
     border: 1px solid var(--line);
 }
 
+.admin-kpis article.warn {
+    border-color: rgba(255, 70, 85, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(255, 70, 85, 0.12);
+}
+
+.admin-kpi-label {
+    display: block;
+    margin-bottom: 8px;
+    color: var(--muted);
+    font-family: var(--head);
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+}
+
 .admin-kpis b {
     display: block;
     font-family: var(--head);
     font-size: 32px;
+    line-height: 1;
+}
+
+.admin-kpis article > span:last-child {
+    display: block;
+    margin-top: 8px;
+    color: #9aa7b3;
+    font-size: 13px;
 }
 
 .admin-table {
@@ -4069,7 +4149,37 @@ body.admin-on {
 }
 
 .admin-form {
-    max-width: 560px;
+    max-width: 640px;
+}
+
+.admin-notice textarea {
+    min-height: 96px;
+}
+
+.admin-notice-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    margin: -4px 0 14px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.admin-preview {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+    padding: 12px 14px;
+    background: #24151a;
+    border: 1px solid rgba(255, 70, 85, 0.35);
+}
+
+.admin-preview p {
+    flex: 1;
+    min-width: 0;
+    color: #f3d7da;
+    font-size: 14px;
 }
 
 .admin-err {
@@ -4403,9 +4513,4 @@ body.admin-on {
     .intro {
         display: none;
     }
-}
-body.session-check #chat,
-body.session-check #admin,
-body.session-check #modal {
-    visibility: hidden;
 }
