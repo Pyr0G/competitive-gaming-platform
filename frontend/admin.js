@@ -37,14 +37,14 @@ const views = {
     stats: async (isCurrent) => {
         const s = await api("/admin/stats");
         if (isCurrent()) markReports(s.reports);
-        return `<div class="admin-head"><h2>Przegląd</h2><p>Stan platformy na teraz.</p></div>
+        return `<div class="admin-head"><div><h2>Przegląd</h2><p>Szybki rzut oka. Kliknij zakładkę po lewej, jak chcesz coś zmienić.</p></div></div>
         <div class="admin-kpis">
-            <article><b>${s.users}</b><span>kont</span></article>
-            <article><b>${s.banned}</b><span>zablokowanych</span></article>
-            <article><b>${s.ads}</b><span>ogłoszeń</span></article>
-            <article><b>${s.messages}</b><span>wiadomości</span></article>
-            <article><b>${s.reports}</b><span>otwartych zgłoszeń</span></article>
-            <article><b>${s.live}</b><span>turniejów na żywo</span></article>
+            <article><span class="admin-kpi-label">Konta</span><b>${s.users}</b><span>wszystkich graczy</span></article>
+            <article><span class="admin-kpi-label">Blokady</span><b>${s.banned}</b><span>wyłączonych kont</span></article>
+            <article><span class="admin-kpi-label">Ogłoszenia</span><b>${s.ads}</b><span>wiszą na tablicy</span></article>
+            <article><span class="admin-kpi-label">Czat</span><b>${s.messages}</b><span>wysłanych wiadomości</span></article>
+            <article class="${s.reports ? "warn" : ""}"><span class="admin-kpi-label">Zgłoszenia</span><b>${s.reports}</b><span>do sprawdzenia</span></article>
+            <article><span class="admin-kpi-label">Turnieje</span><b>${s.live}</b><span>trwają teraz</span></article>
         </div>`;
     },
     users: async () => {
@@ -112,12 +112,23 @@ const views = {
     },
     notice: async () => {
         const { announcement } = await api("/admin/announcement");
-        return `<div class="admin-head"><h2>Komunikat</h2><p>Pasek na górze strony. Widać go wszyscy, dopóki ktoś go nie schowa.</p></div>
-        <form class="admin-form" id="admin-notice">
-            <label>Treść<textarea name="content" rows="3" maxlength="200" placeholder="np. Zapisy na Nocny Turniej BO3 zamykamy w piątek o 18.">${esc(announcement?.content || "")}</textarea></label>
+        const text = announcement?.content || "";
+        const on = Boolean(announcement);
+        return `<div class="admin-head"><div><h2>Komunikat</h2><p>Krótka wiadomość na górze strony. Goście nie mogą jej schować. Zalogowany może ją tylko u siebie ukryć, a Ty wyłączasz ją dla wszystkich tutaj.</p></div>
+            <span class="admin-pill ${on ? "on" : ""}">${on ? "Widoczny na stronie" : "Wyłączony"}</span>
+        </div>
+        <form class="admin-form admin-notice" id="admin-notice">
+            <label>Co mają zobaczyć
+                <textarea name="content" id="admin-notice-text" rows="3" maxlength="200" placeholder="np. Zapisy na Nocny Turniej BO3 zamykamy w piątek o 18.">${esc(text)}</textarea>
+            </label>
+            <div class="admin-notice-meta"><span>Pisz krótko i konkretnie.</span><span id="admin-notice-count">${text.length}/200</span></div>
+            <div class="admin-preview" aria-hidden="true">
+                <span class="notice-tag">Komunikat</span>
+                <p id="admin-notice-preview">${esc(text) || "Tu zobaczysz podgląd zanim klikniesz publikuj."}</p>
+            </div>
             <div class="admin-actions">
-                <button type="submit" class="btn">Pokaż na stronie</button>
-                <button type="button" class="btn btn-ghost" id="admin-notice-off">Ukryj pasek</button>
+                <button type="submit" class="btn">${on ? "Zaktualizuj komunikat" : "Pokaż na stronie"}</button>
+                <button type="button" class="btn btn-ghost" id="admin-notice-off" ${on ? "" : "disabled"}>Wyłącz dla wszystkich</button>
             </div>
         </form>`;
     },
@@ -170,6 +181,15 @@ adminNav.addEventListener("click", (e) => {
     drawAdmin();
 });
 
+adminMain.addEventListener("input", (e) => {
+    if (e.target.id !== "admin-notice-text") return;
+    const text = e.target.value;
+    const count = $("#admin-notice-count");
+    const preview = $("#admin-notice-preview");
+    if (count) count.textContent = `${text.length}/200`;
+    if (preview) preview.textContent = text.trim() || "Tu zobaczysz podgląd zanim klikniesz publikuj.";
+});
+
 adminMain.addEventListener("submit", async (e) => {
     if (e.target.id === "admin-search") {
         e.preventDefault();
@@ -179,6 +199,7 @@ adminMain.addEventListener("submit", async (e) => {
         e.preventDefault();
         try {
             await api("/admin/announcement", { content: e.target.content.value.trim() });
+            localStorage.removeItem("cgp-notice");
             toast("Komunikat wisi na górze strony.");
             loadNotice();
             drawAdmin();
