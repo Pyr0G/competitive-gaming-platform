@@ -5,6 +5,7 @@ import vm from "node:vm";
 
 const source = await readFile(new URL("../frontend/chat.js", import.meta.url), "utf8");
 const appSource = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+const styleSource = await readFile(new URL("../frontend/style.css", import.meta.url), "utf8");
 const userSource = appSource.slice(appSource.indexOf("const loginButton ="), appSource.indexOf("const toasts ="));
 const sessionSource = appSource.slice(appSource.indexOf("const refreshUser ="), appSource.indexOf('$("#form-login").addEventListener'));
 const flush = () => new Promise(setImmediate);
@@ -414,6 +415,7 @@ test("an account change in another tab clears private state even if reconciliati
 });
 
 test("a resumed tab hides private panels until identity is confirmed and preserves same-user drafts", async () => {
+    assert.match(styleSource, /body\.session-check #chat,\s*body\.session-check #admin,\s*body\.session-check #modal\s*\{\s*visibility:\s*hidden;\s*\}/);
     const c = await createClient();
     c.state.threads.set(1, thread(1, [message(1, "private message")]));
     await c.openChat();
