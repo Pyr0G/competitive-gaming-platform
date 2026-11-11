@@ -447,3 +447,42 @@ test("a delayed session check cannot restore a previous account after a newer lo
     assert.equal(c.context.currentUser.id, 2);
     assert.equal(c.signals.at(-1)[0], "cgp-auth-change");
 });
+
+test("a delayed session response cannot sign the user back in after logout", async () => {
+    const c = await createClient();
+    const delayed = c.pause((path) => path === "/auth/me");
+    const refreshing = c.refreshUser();
+    await flush();
+    c.setUser(null, true);
+    delayed.release();
+    await refreshing;
+    assert.equal(c.context.currentUser, null);
+    assert.equal(c.$("#chat-btn").hidden, true);
+    assert.equal(c.signals.at(-1)[0], "cgp-auth-change");
+});
+
+test("restored and newly visible pages reconcile identity before revealing private content", async () => {
+    for (const trigger of [
+        (c) => c.window.emit("pageshow", { persisted: true }),
+        (c) => { c.document.visibilityState = "visible"; return c.document.emit("visibilitychange"); },
+    ]) {
+        const c = await createClient();
+        c.state.threads.set(1, thread(1, [message(1, "private message")]));
+        await c.openChat();
+        await c.openThread(1);
+        c.$("textarea").value = "private draft";
+        c.state.sessionUser = null;
+        const delayed = c.pause((path) => path === "/auth/me");
+        const resuming = trigger(c);
+        await flush();
+        assert.ok(delayed.started);
+        assert.equal(c.document.body.classList.contains("session-check"), true);
+        delayed.release();
+        await resuming;
+        assert.equal(c.context.currentUser, null);
+        assert.equal(c.$("#chat").hidden, true);
+        assert.equal(c.$("#chat-msgs").innerHTML, "");
+        assert.equal(c.$("textarea").value, "");
+        assert.equal(c.document.body.classList.contains("session-check"), false);
+    }
+});

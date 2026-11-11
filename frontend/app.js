@@ -1271,12 +1271,18 @@ const setNoticeHeight = () => {
     document.documentElement.style.setProperty("--notice", notice.hidden ? "0px" : `${notice.offsetHeight}px`);
 };
 
+let noticeItem = null;
+
 const showNotice = (item) => {
-    const hide = !item || localStorage.getItem("cgp-notice") === String(item.id);
+    if (item !== undefined) noticeItem = item;
+    const canHide = Boolean(currentUser);
+    const dismissed = canHide && noticeItem && localStorage.getItem("cgp-notice") === String(noticeItem.id);
+    const hide = !noticeItem || dismissed;
     notice.hidden = hide;
+    $("#notice-x").hidden = hide || !canHide;
     if (!hide) {
-        notice.dataset.id = item.id;
-        $("#notice-text").textContent = item.content;
+        notice.dataset.id = noticeItem.id;
+        $("#notice-text").textContent = noticeItem.content;
     }
     setNoticeHeight();
 };
@@ -1284,14 +1290,16 @@ const showNotice = (item) => {
 const loadNotice = () => api("/announcement").then((data) => showNotice(data.announcement)).catch(() => {});
 
 $("#notice-x").addEventListener("click", () => {
-    localStorage.setItem("cgp-notice", notice.dataset.id);
+    if (!currentUser || !noticeItem) return;
+    localStorage.setItem("cgp-notice", noticeItem.id);
     notice.classList.add("out");
     setTimeout(() => {
         notice.classList.remove("out");
-        showNotice(null);
+        showNotice(noticeItem);
     }, 300);
 });
 
+document.addEventListener("cgp:user", () => showNotice());
 window.addEventListener("resize", setNoticeHeight);
 
 const loadData = async () => {
