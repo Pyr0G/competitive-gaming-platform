@@ -5,6 +5,7 @@ import vm from "node:vm";
 
 const source = await readFile(new URL("../frontend/chat.js", import.meta.url), "utf8");
 const appSource = await readFile(new URL("../frontend/app.js", import.meta.url), "utf8");
+const styleSource = await readFile(new URL("../frontend/style.css", import.meta.url), "utf8");
 const userSource = appSource.slice(appSource.indexOf("const loginButton ="), appSource.indexOf("const toasts ="));
 const sessionSource = appSource.slice(appSource.indexOf("const refreshUser ="), appSource.indexOf('$("#form-login").addEventListener'));
 const flush = () => new Promise(setImmediate);
@@ -414,6 +415,7 @@ test("an account change in another tab clears private state even if reconciliati
 });
 
 test("a resumed tab hides private panels until identity is confirmed and preserves same-user drafts", async () => {
+    assert.match(styleSource, /body\.session-check #chat,\s*body\.session-check #admin,\s*body\.session-check #modal\s*\{\s*visibility:\s*hidden;\s*\}/);
     const c = await createClient();
     c.state.threads.set(1, thread(1, [message(1, "private message")]));
     await c.openChat();
@@ -444,4 +446,43 @@ test("a delayed session check cannot restore a previous account after a newer lo
     await refreshing;
     assert.equal(c.context.currentUser.id, 2);
     assert.equal(c.signals.at(-1)[0], "cgp-auth-change");
+});
+
+test("a delayed session response cannot sign the user back in after logout", async () => {
+    const c = await createClient();
+    const delayed = c.pause((path) => path === "/auth/me");
+    const refreshing = c.refreshUser();
+    await flush();
+    c.setUser(null, true);
+    delayed.release();
+    await refreshing;
+    assert.equal(c.context.currentUser, null);
+    assert.equal(c.$("#chat-btn").hidden, true);
+    assert.equal(c.signals.at(-1)[0], "cgp-auth-change");
+});
+
+test("restored and newly visible pages reconcile identity before revealing private content", async () => {
+    for (const trigger of [
+        (c) => c.window.emit("pageshow", { persisted: true }),
+        (c) => { c.document.visibilityState = "visible"; return c.document.emit("visibilitychange"); },
+    ]) {
+        const c = await createClient();
+        c.state.threads.set(1, thread(1, [message(1, "private message")]));
+        await c.openChat();
+        await c.openThread(1);
+        c.$("textarea").value = "private draft";
+        c.state.sessionUser = null;
+        const delayed = c.pause((path) => path === "/auth/me");
+        const resuming = trigger(c);
+        await flush();
+        assert.ok(delayed.started);
+        assert.equal(c.document.body.classList.contains("session-check"), true);
+        delayed.release();
+        await resuming;
+        assert.equal(c.context.currentUser, null);
+        assert.equal(c.$("#chat").hidden, true);
+        assert.equal(c.$("#chat-msgs").innerHTML, "");
+        assert.equal(c.$("textarea").value, "");
+        assert.equal(c.document.body.classList.contains("session-check"), false);
+    }
 });
