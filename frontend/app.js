@@ -898,9 +898,12 @@ const send = async (form, path, body, demoText) => {
 
 const loginButton = $(".btn-login");
 const registerButton = $(".auth > .btn[data-modal=register]");
+let userRequest = 0;
 
-const setUser = (user) => {
+const setUser = (user, broadcast = false) => {
+    userRequest++;
     currentUser = user;
+    document.body.classList.remove("session-check");
     $("span", loginButton).textContent = user ? user.nick : "Zaloguj";
     loginButton.dataset.modal = user ? "account" : "login";
     loginButton.classList.toggle("logged", Boolean(user));
@@ -911,6 +914,11 @@ const setUser = (user) => {
     $("[data-admin-open]", modal).hidden = !user?.admin;
     $("#chat-btn").hidden = !user;
     document.dispatchEvent(new CustomEvent("cgp:user"));
+    if (broadcast) {
+        try {
+            localStorage.setItem("cgp-auth-change", `${Date.now()}:${Math.random()}`);
+        } catch {}
+    }
 };
 
 const toasts = $("#toasts");
@@ -924,7 +932,32 @@ const toast = (text, type = "ok") => {
     setTimeout(() => el.remove(), 3600);
 };
 
-const refreshUser = () => api("/auth/me").then((data) => setUser(data.user)).catch(() => {});
+const refreshUser = () => {
+    const request = ++userRequest;
+    return api("/auth/me").then((data) => {
+        if (request === userRequest) setUser(data.user);
+    }).catch(() => {
+        if (request === userRequest) setUser(null);
+    });
+};
+
+const reconcileSession = () => {
+    document.body.classList.add("session-check");
+    return refreshUser();
+};
+
+window.addEventListener("storage", (e) => {
+    if (e.key !== "cgp-auth-change") return;
+    setUser(null);
+    reconcileSession();
+});
+window.addEventListener("focus", reconcileSession);
+window.addEventListener("pageshow", (e) => {
+    if (e.persisted) reconcileSession();
+});
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") reconcileSession();
+});
 
 $("#form-login").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -936,7 +969,7 @@ $("#form-login").addEventListener("submit", async (e) => {
     try {
         const data = await send(form, "/auth/login", { login, password: form.password.value }, `logowanie działa po wejściu na stronę online. Cześć, <b>${esc(login)}</b>!`);
         if (!data) return;
-        setUser(data.user);
+        setUser(data.user, true);
         formMessage(form, `Cześć <b>${esc(data.user.nick)}</b>, jesteś zalogowany.`, "ok");
         form.reset();
         setTimeout(closeModal, 900);
@@ -1005,7 +1038,7 @@ $("#form-newpass").addEventListener("submit", async (e) => {
 $("#form-account").addEventListener("submit", async (e) => {
     e.preventDefault();
     await api("/auth/logout", {}).catch(() => {});
-    setUser(null);
+    setUser(null, true);
     closeModal();
     toast("Wylogowano. Do zobaczenia!");
     loadAds().catch(() => {});
@@ -1272,8 +1305,9 @@ window.addEventListener("resize", setNoticeHeight);
 const loadData = async () => {
     if (!(await backend)) return;
 
+    const request = ++userRequest;
     const [tournaments, me] = await Promise.allSettled([api("/tournaments"), api("/auth/me")]);
-    if (me.status === "fulfilled") setUser(me.value.user);
+    if (me.status === "fulfilled" && request === userRequest) setUser(me.value.user, new URLSearchParams(location.search).get("verified") === "1");
     if (tournaments.status === "fulfilled") applyTournaments(tournaments.value);
     loadNotice();
 
