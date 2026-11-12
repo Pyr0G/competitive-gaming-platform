@@ -5,6 +5,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
 import { createTypingStore } from "./typing-state.js";
+import { apiRateLimit } from "./api-rate-limit.js";
 
 const config = { jwtSecret: "test-only-session-key", appUrl: "http://localhost", production: false };
 let time = 0;
@@ -47,6 +48,7 @@ const { readSession } = await import("./auth.js");
 const { chat } = await import("./chat.js");
 const app = express();
 app.set("trust proxy", 1);
+app.use("/api", apiRateLimit);
 app.use(express.json({ limit: "20kb" }));
 app.use(readSession);
 app.use("/api/chat", chat);

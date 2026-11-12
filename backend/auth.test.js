@@ -5,6 +5,7 @@ import express from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "node:crypto";
+import { apiRateLimit } from "./api-rate-limit.js";
 
 const config = { jwtSecret: "test-only-session-key", appUrl: "http://localhost", production: false };
 let queryHandler = async () => ({ rows: [] });
@@ -19,6 +20,7 @@ const { auth, readSession } = await import("./auth.js");
 const { api } = await import("./api.js");
 const app = express();
 app.set("trust proxy", 1);
+app.use("/api", apiRateLimit);
 app.use(express.json({ limit: "20kb" }));
 app.use(readSession);
 app.use("/api/auth", auth);
@@ -108,4 +110,27 @@ test("busy password handlers reject reset before consuming its token", async () 
     }
     assert.equal((await post("/auth/reset", { token: "unused", password: "new-password" }, "192.0.2.6")).status, 400);
     assert.equal(resets, 0);
+});
+
+test("email validation rejects crafted and oversized input before database or mail work", async () => {
+    let lookups = 0;
+    queryHandler = async () => { lookups++; return { rows: [] }; };
+    const emails = ["!@!." + "!.".repeat(8000), "a@" + ".".repeat(16000), "a@@b.co", "a b@example.com", "a@b.", "a".repeat(244) + "@example.com"];
+    for (const [i, email] of emails.entries()) {
+        for (const operation of ["register", "forgot"]) {
+            const response = await post(`/auth/${operation}`, { nick: "tester", email, password: "haslo123" }, `192.0.2.${60 + i}`);
+            assert.equal(response.status, 400, operation);
+        }
+    }
+    assert.equal(lookups, 0);
+    for (const [i, email] of ["Bartek+CS2@Example.COM", "a".repeat(242) + "@example.com"].entries()) {
+        const normalized = email.toLowerCase();
+        queryHandler = async (sql, params) => {
+            assert.equal(params[0], normalized);
+            lookups++;
+            return { rows: [] };
+        };
+        assert.equal((await post("/auth/forgot", { email: ` ${email} ` }, `192.0.2.${70 + i}`)).status, 200);
+    }
+    assert.equal(lookups, 2);
 });

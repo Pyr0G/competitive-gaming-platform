@@ -6,11 +6,13 @@ import { auth, readSession } from "./auth.js";
 import { api } from "./api.js";
 import { chat } from "./chat.js";
 import { admin } from "./admin.js";
+import { apiRateLimit } from "./api-rate-limit.js";
 
 const app = express();
 
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
+app.use("/api", apiRateLimit);
 app.use(express.json({ limit: "20kb" }));
 app.use("/api", readSession);
 

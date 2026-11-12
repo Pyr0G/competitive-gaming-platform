@@ -23,6 +23,7 @@ let chatView = 0;
 let chatUserId = currentUser?.id;
 let unreadRequest = 0;
 let listRequest = 0;
+let typingSentAt = -Infinity;
 
 const isChatView = (view, id) => view === chatView && chatId === id && !chatBox.hidden && currentUser;
 
@@ -119,6 +120,7 @@ const refreshThread = async () => {
 const openThread = async (id) => {
     const view = ++chatView;
     chatId = id;
+    typingSentAt = -Infinity;
     lastMsg = 0;
     chatList.hidden = true;
     chatThread.hidden = false;
@@ -245,7 +247,11 @@ chatInput.addEventListener("keydown", (e) => {
 chatInput.addEventListener("input", () => {
     chatInput.style.height = "auto";
     chatInput.style.height = `${Math.min(chatInput.scrollHeight, 120)}px`;
-    if (chatId) api(`/chat/${chatId}/typing`, {}).catch(() => {});
+    const time = Date.now();
+    if (chatId && currentUser && time - typingSentAt >= 1000) {
+        typingSentAt = time;
+        api(`/chat/${chatId}/typing`, {}).catch(() => {});
+    }
 });
 
 $$("[data-chat-act]").forEach((btn) => btn.addEventListener("click", async () => {
