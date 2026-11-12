@@ -1,0 +1,71 @@
+/* CGP design-system layer. Existing component styles remain the visual source of truth. */
+:root {
+    color-scheme: dark;
+    --ds-space-1: 4px;
+    --ds-space-2: 8px;
+    --ds-space-3: 12px;
+    --ds-space-4: 16px;
+    --ds-space-6: 24px;
+    --ds-space-8: 32px;
+    --ds-radius-sm: 4px;
+    --ds-radius-md: 8px;
+    --ds-radius-lg: 14px;
+    --ds-focus: 0 0 0 3px rgba(76, 155, 255, 0.55);
+    --ds-content-width: 1200px;
+    --ds-transition-fast: 140ms ease;
+    --ds-transition-normal: 220ms ease;
+}
+
+.container { max-width: var(--ds-content-width); }
+
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+    outline: none;
+    box-shadow: var(--ds-focus);
+    border-radius: var(--ds-radius-sm);
+}
+
+.language-control {
+    display: inline-flex;
+    align-items: center;
+    flex: none;
+}
+
+.language-control select {
+    min-width: 54px;
+    height: 38px;
+    padding: 0 8px;
+    color: var(--text);
+    font: 700 12px var(--head);
+    letter-spacing: .06em;
+    background: var(--card);
+    border: 1px solid var(--line-2);
+    border-radius: var(--ds-radius-sm);
+    cursor: pointer;
+}
+
+.language-control select:hover { border-color: var(--accent); }
+
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+:where(.btn, .btn-login, .icon-btn, .language-control select) {
+    transition-duration: var(--ds-transition-fast);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        scroll-behavior: auto !important;
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+    }
+}

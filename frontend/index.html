@@ -6,6 +6,7 @@
     <title>CGP | Turnieje CS2 dla amatorów</title>
     <link rel="icon" href="assets/favicon.png">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="design-system.css">
 </head>
 <body>
     <div class="intro" id="intro" aria-hidden="true">
@@ -28,15 +29,16 @@
                 <img src="assets/logo-wordmark.png" alt="CGP">
             </a>
             <nav class="nav" id="nav">
-                <a href="#jak" data-spy="jak"><span>01</span>Jak to działa</a>
-                <a href="#turnieje" data-spy="turnieje"><span>02</span>Turnieje</a>
-                <a href="#lfg" data-spy="lfg"><span>03</span>Ogłoszenia</a>
-                <a href="#drabinka" data-spy="drabinka"><span>04</span>Drabinka</a>
-                <a href="#ranking" data-spy="ranking"><span>05</span>Ranking</a>
+                <a href="#jak" data-spy="jak"><span>01</span><span data-i18n="nav.how">Jak to działa</span></a>
+                <a href="#turnieje" data-spy="turnieje"><span>02</span><span data-i18n="nav.tournaments">Turnieje</span></a>
+                <a href="#lfg" data-spy="lfg"><span>03</span><span data-i18n="nav.recruitment">Ogłoszenia</span></a>
+                <a href="#drabinka" data-spy="drabinka"><span>04</span><span data-i18n="nav.bracket">Drabinka</span></a>
+                <a href="#ranking" data-spy="ranking"><span>05</span><span data-i18n="nav.ranking">Ranking</span></a>
                 <a href="#veto" data-spy="veto"><span>06</span>Veto map</a>
                 <span class="nav-ink" id="nav-ink"></span>
             </nav>
             <div class="auth">
+                <label class="language-control" for="language-select"><span class="sr-only">Language</span><select id="language-select" aria-label="Language"><option value="pl">PL</option><option value="en">EN</option></select></label>
                 <button type="button" class="icon-btn" id="admin-btn" aria-label="Panel admina" title="Panel admina" hidden>
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z" /><path d="M9 12l2 2 4-4" /></svg>
                 </button>
@@ -46,9 +48,9 @@
                 </button>
                 <button type="button" class="btn-login" data-modal="login">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7" /></svg>
-                    <span>Zaloguj</span>
+                    <span data-i18n="action.login">Zaloguj</span>
                 </button>
-                <button type="button" class="btn" data-modal="register">Załóż konto</button>
+                <button type="button" class="btn" data-modal="register" data-i18n="action.register">Załóż konto</button>
                 <button type="button" class="burger" id="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
             </div>
         </div>
@@ -707,6 +709,9 @@
     <div class="hits" id="hits" aria-hidden="true"></div>
     <div class="toasts" id="toasts" aria-live="polite"></div>
 
+    <script src="locales/pl.js"></script>
+    <script src="locales/en.js"></script>
+    <script src="i18n.js"></script>
     <script src="app.js"></script>
     <script src="veto.js"></script>
     <script src="chat.js"></script>
