@@ -754,7 +754,7 @@ faceitForm.addEventListener("submit", async (e) => {
     renderPanel();
 
     const list = [
-        `Link poprawny, ID meczu: <code>${id}</code>`,
+        "Link poprawny, ID meczu: ",
         "Pobieram mecz z FACEIT",
         "Mecz zakończony, porównuję graczy ze składami",
         "10 na 10 graczy się zgadza",
@@ -763,7 +763,12 @@ faceitForm.addEventListener("submit", async (e) => {
 
     for (const text of list) {
         const li = document.createElement("li");
-        li.innerHTML = text;
+        li.textContent = text;
+        if (text === list[0]) {
+            const code = document.createElement("code");
+            code.textContent = id;
+            li.append(code);
+        }
         faceitSteps.append(li);
         await wait(reducedMotion ? 50 : 650);
         li.classList.add("ok");
@@ -820,7 +825,12 @@ $$("[data-tab-go]", modal).forEach((btn) => btn.addEventListener("click", () => 
     $(`[data-form="${btn.dataset.tabGo}"] input`, modal)?.focus();
 }));
 
-const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const validEmail = (email) => {
+    if (email.length > 254 || /\s/.test(email)) return false;
+    const at = email.indexOf("@");
+    const dot = email.indexOf(".", at + 2);
+    return at > 0 && at === email.lastIndexOf("@") && dot > at + 1 && dot < email.length - 1;
+};
 
 let currentUser = null;
 
@@ -964,7 +974,7 @@ $("#form-login").addEventListener("submit", async (e) => {
     const form = e.target;
     const login = form.login.value.trim();
     if (!login || !form.password.value) return formMessage(form, "Wpisz nick albo e-mail i hasło.", "err");
-    if (login.includes("@") && !emailPattern.test(login)) return formMessage(form, "Ten e-mail wygląda na niepełny.", "err");
+    if (login.includes("@") && !validEmail(login)) return formMessage(form, "Ten e-mail wygląda na niepełny.", "err");
 
     try {
         const data = await send(form, "/auth/login", { login, password: form.password.value }, `logowanie działa po wejściu na stronę online. Cześć, <b>${esc(login)}</b>!`);
@@ -999,7 +1009,7 @@ $("#form-register").addEventListener("submit", async (e) => {
 
     if (nick.length < 3 || nick.length > 32) return formMessage(form, "Nick musi mieć od 3 do 32 znaków.", "err");
     if (!/^[\p{L}\p{N}_.-]+$/u.test(nick)) return formMessage(form, "Nick może mieć tylko litery, cyfry oraz znaki _ . -", "err");
-    if (!emailPattern.test(email) || email.length > 254) return formMessage(form, "Podaj poprawny e-mail, np. kuba@example.com", "err");
+    if (!validEmail(email)) return formMessage(form, "Podaj poprawny e-mail, np. kuba@example.com", "err");
     if (password.length < 8) return formMessage(form, "Hasło musi mieć co najmniej 8 znaków.", "err");
     if (password !== form.password2.value) return formMessage(form, "Hasła się różnią.", "err");
 
@@ -1013,7 +1023,7 @@ $("#form-reset").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const email = form.email.value.trim();
-    if (!emailPattern.test(email)) return formMessage(form, "Podaj poprawny e-mail.", "err");
+    if (!validEmail(email)) return formMessage(form, "Podaj poprawny e-mail.", "err");
 
     const data = await send(form, "/auth/forgot", { email }, `na stronie online link do zmiany hasła przyjdzie na <b>${esc(email)}</b>.`).catch(() => null);
     if (data) formMessage(form, esc(data.message), "ok");

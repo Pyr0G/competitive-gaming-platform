@@ -5,6 +5,7 @@ import { after, mock, test } from "node:test";
 import bcrypt from "bcryptjs";
 import express from "express";
 import jwt from "jsonwebtoken";
+import { apiRateLimit } from "./api-rate-limit.js";
 
 const config = { jwtSecret: "test-only-session-key", appUrl: "http://localhost", production: false };
 const hashToken = (token) => crypto.createHash("sha256").update(token).digest("hex");
@@ -79,6 +80,7 @@ const { api } = await import("./api.js");
 const { chat } = await import("./chat.js");
 const { admin } = await import("./admin.js");
 const app = express();
+app.use("/api", apiRateLimit);
 app.use(express.json());
 app.use(readSession);
 app.use("/api/auth", auth);

@@ -76,7 +76,7 @@ const createClient = async () => {
     document.body = new Element();
     const window = new Element();
     const signals = [];
-    const state = { unread: 0, conversations: [], threads: new Map(), sessionUser: { id: 1 } };
+    const state = { unread: 0, conversations: [], threads: new Map(), sessionUser: { id: 1 }, time: 0 };
     const requests = [];
     const pauses = [];
     const toasts = [];
@@ -93,13 +93,14 @@ const createClient = async () => {
         esc: (value) => String(value).replaceAll("<", "&lt;"),
         toast: (...args) => toasts.push(args), openModal() {},
         setInterval: (handler) => { tick = handler; return 1; },
+        Date: class extends Date { static now() { return state.time; } },
         api: (path, body) => {
             requests.push({ path, body });
             let data;
             if (path === "/auth/me") data = { user: state.sessionUser };
             else if (path === "/chat/unread") data = { unread: state.unread };
             else if (path === "/chat") data = { conversations: state.conversations };
-            else if (/^\/chat\/\d+\/(block|report)$/.test(path)) data = { ok: true };
+            else if (/^\/chat\/\d+\/(block|report|typing)$/.test(path)) data = { ok: true };
             else {
                 const match = path.match(/^\/chat\/(\d+)(?:\?after=(\d+))?$/);
                 assert.ok(match, `Unexpected request: ${path}`);
@@ -153,6 +154,38 @@ test("sending fetches intervening incoming messages before advancing the receive
     assert.deepEqual(c.ids(), [10, 11, 12]);
     assert.ok(c.requests.some((r) => r.body === undefined && r.path === "/chat/1?after=10"));
     assert.equal(c.requests.filter((r) => r.path.startsWith("/chat/1?")).at(-1).path, "/chat/1?after=12");
+});
+
+test("continuous typing and polling leave room for messages within the API allowance", async () => {
+    const c = await createClient();
+    c.state.threads.set(1, thread(1));
+    await c.openChat();
+    await c.openThread(1);
+    for (let time = 0; time < 60000; time += 10) {
+        c.state.time = time;
+        await c.$("textarea").emit("input");
+        if (time % 2500 === 0) await c.tick();
+    }
+    assert.equal(c.requests.filter((r) => r.path === "/chat/1/typing").length, 60);
+    await c.send("Wiadomość po pisaniu");
+    assert.deepEqual(c.ids(), [1]);
+    assert.ok(c.requests.length < 300);
+});
+
+test("typing starts immediately in a new conversation and stays silent after logout", async () => {
+    const c = await createClient();
+    c.state.threads.set(1, thread(1));
+    c.state.threads.set(2, thread(2));
+    await c.openChat();
+    await c.openThread(1);
+    await c.$("textarea").emit("input");
+    await c.$("textarea").emit("input");
+    await c.openThread(2);
+    await c.$("textarea").emit("input");
+    c.setUser(null);
+    c.state.time = 2000;
+    await c.$("textarea").emit("input");
+    assert.deepEqual(c.requests.filter((r) => r.path.endsWith("/typing")).map((r) => r.path), ["/chat/1/typing", "/chat/2/typing"]);
 });
 
 test("an old conversation poll cannot change the selected conversation or its receive cursor", async () => {

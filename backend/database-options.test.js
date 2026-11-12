@@ -79,36 +79,39 @@ test("pg rejects an untrusted certificate and accepts the explicit test CA", asy
     const sockets = new Set();
     let startupPackets = 0;
     let clientCertificates = 0;
-    const server = createServer((socket) => {
-        sockets.add(socket);
-        socket.on("close", () => sockets.delete(socket));
-        socket.on("error", () => {});
-        socket.once("data", (packet) => {
-            assert.equal(packet.readInt32BE(4), 80877103);
-            socket.write("S");
-            const secure = new TLSSocket(socket, { isServer: true, secureContext, requestCert: true, rejectUnauthorized: false });
-            sockets.add(secure);
-            secure.on("close", () => sockets.delete(secure));
-            secure.on("error", () => {});
-            secure.once("data", () => {
-                startupPackets++;
-                if (secure.getPeerCertificate().raw) clientCertificates++;
-                const body = Buffer.from("SFATAL\0C28000\0Mtest TLS established\0\0");
-                const reply = Buffer.alloc(body.length + 5);
-                reply[0] = 69;
-                reply.writeInt32BE(body.length + 4, 1);
-                body.copy(reply, 5);
-                secure.end(reply);
+    const startServer = async (requestCert = false) => {
+        const server = createServer((socket) => {
+            sockets.add(socket);
+            socket.on("close", () => sockets.delete(socket));
+            socket.on("error", () => {});
+            socket.once("data", (packet) => {
+                assert.equal(packet.readInt32BE(4), 80877103);
+                socket.write("S");
+                const secure = new TLSSocket(socket, { isServer: true, secureContext, requestCert, rejectUnauthorized: true });
+                sockets.add(secure);
+                secure.on("close", () => sockets.delete(secure));
+                secure.on("error", () => {});
+                secure.once("data", () => {
+                    startupPackets++;
+                    if (secure.getPeerCertificate().raw) clientCertificates++;
+                    const body = Buffer.from("SFATAL\0C28000\0Mtest TLS established\0\0");
+                    const reply = Buffer.alloc(body.length + 5);
+                    reply[0] = 69;
+                    reply.writeInt32BE(body.length + 4, 1);
+                    body.copy(reply, 5);
+                    secure.end(reply);
+                });
             });
         });
-    });
-    server.listen(0, "127.0.0.1");
-    await once(server, "listening");
-    t.after(async () => {
-        for (const socket of sockets) socket.destroy();
-        await new Promise((resolve) => server.close(resolve));
-    });
-    const base = `postgresql://bartek:test-only@127.0.0.1:${server.address().port}/platforma?sslmode=verify-full`;
+        server.listen(0, "127.0.0.1");
+        await once(server, "listening");
+        t.after(async () => {
+            for (const socket of sockets) socket.destroy();
+            await new Promise((resolve) => server.close(resolve));
+        });
+        return `postgresql://bartek:test-only@127.0.0.1:${server.address().port}/platforma?sslmode=verify-full`;
+    };
+    const base = await startServer();
     const untrusted = new pg.Client({ ...databaseOptions(base), connectionTimeoutMillis: 2000 });
     try {
         await assert.rejects(untrusted.connect(), (err) => err.code === "DEPTH_ZERO_SELF_SIGNED_CERT");
@@ -125,7 +128,8 @@ test("pg rejects an untrusted certificate and accepts the explicit test CA", asy
     }
     assert.equal(startupPackets, 1);
     const keyPath = encodeURIComponent(fileURLToPath(new URL("./test-fixtures/postgres-test.key", import.meta.url)));
-    const mutual = new pg.Client({ ...databaseOptions(`${base}&sslrootcert=${ca}&sslcert=${ca}&sslkey=${keyPath}`), connectionTimeoutMillis: 2000 });
+    const mutualBase = await startServer(true);
+    const mutual = new pg.Client({ ...databaseOptions(`${mutualBase}&sslrootcert=${ca}&sslcert=${ca}&sslkey=${keyPath}`), connectionTimeoutMillis: 2000 });
     try {
         await assert.rejects(mutual.connect(), /test TLS established/);
     } finally {
