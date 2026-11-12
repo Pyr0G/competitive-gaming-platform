@@ -95,7 +95,7 @@ Use the [deployment guide](DEPLOYMENT.md) for container settings, production con
 | `/api/chat` | Conversations, unread counts, messages, typing, blocking, and reports; requires login. |
 | `/api/admin` | Moderation, users, reports, tournament controls, statistics, and banners; requires an admin account. |
 
-There are currently no team-management, tournament-registration, or FACEIT import endpoints. Sessions use the `cgp_session` cookie. Authentication and selected write operations have per-operation/per-client limits, with a shared limit of two concurrent password operations per application process.
+There are currently no team-management, tournament-registration, or FACEIT import endpoints. Sessions use the `cgp_session` cookie. All API requests share a limit of 300 requests per minute per client, applied before JSON parsing and session verification. IPv6 clients share an allowance within a /56 subnet. The in-memory API limiter tracks at most 10,000 active client identities and rejects new identities at capacity until entries expire. Limits reset when the application process restarts. Authentication and selected write operations retain their separate per-operation/per-client limits, with a shared limit of two concurrent password operations per application process.
 
 ## Tests and contribution rules
 

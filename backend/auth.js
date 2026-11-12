@@ -12,7 +12,12 @@ export { limit };
 export const auth = Router();
 
 const COOKIE = "cgp_session";
-const emailPattern = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+const validEmail = (email) => {
+    if (email.length > 254 || /\s/.test(email)) return false;
+    const at = email.indexOf("@");
+    const dot = email.indexOf(".", at + 2);
+    return at > 0 && at === email.lastIndexOf("@") && dot > at + 1 && dot < email.length - 1;
+};
 const nickPattern = /^[\p{L}\p{N}_.-]{3,32}$/u;
 
 const newToken = () => {
@@ -77,7 +82,7 @@ auth.post("/register", limit("register", 10, 15), passwordWork(async (req, res) 
     const password = String(req.body.password || "");
 
     if (!nickPattern.test(nick)) return res.status(400).json({ error: "Nick musi mieć od 3 do 32 znaków: litery, cyfry oraz _ . -" });
-    if (!emailPattern.test(email) || email.length > 254) return res.status(400).json({ error: "Podaj poprawny e-mail." });
+    if (!validEmail(email)) return res.status(400).json({ error: "Podaj poprawny e-mail." });
     if (password.length < 8) return res.status(400).json({ error: "Hasło musi mieć co najmniej 8 znaków." });
 
     try {
@@ -179,7 +184,7 @@ auth.get("/me", async (req, res) => {
 
 auth.post("/forgot", limit("forgot", 5, 15), async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
-    if (!emailPattern.test(email)) return res.status(400).json({ error: "Podaj poprawny e-mail." });
+    if (!validEmail(email)) return res.status(400).json({ error: "Podaj poprawny e-mail." });
 
     const { rows } = await query("SELECT id, nick, email FROM users WHERE LOWER(email) = $1", [email]);
     if (rows.length) {
