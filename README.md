@@ -1,6 +1,6 @@
 # Competitive Gaming Platform
 
-CGP is a CS2 tournament and recruitment platform with a Polish interface. A single Node.js service serves the frontend and `/api` from the same origin, backed by PostgreSQL. Production runs in Docker.
+CGP is a CS2 tournament and recruitment platform with English and Polish interfaces. English is the fallback; visitors using the Poland region receive Polish automatically. Language and region can be changed independently and saved in the browser. A single Node.js service serves the frontend and `/api` from the same origin, backed by PostgreSQL. Production runs in Docker.
 
 ## Current functionality
 
@@ -12,6 +12,7 @@ CGP is a CS2 tournament and recruitment platform with a Polish interface. A sing
 | Tournaments | Read tournament data, registered teams, brackets, and scores from the database. |
 | Ranking | Team standings calculated in the browser from completed tournament matches. This is not an Elo system. |
 | Administration | User search, bans, admin permissions, manual email verification, ad moderation, report resolution, tournament cancellation/registration closure, and a site banner. |
+| Language and region | Shared English and Polish catalogs for public views, account forms, chat, administration, API messages and emails. Locale-aware dates, numbers, relative times and plurals; device-region defaults with explicit overrides. |
 
 The application is still a partial implementation of the product brief. Team creation and invitations, player profile editing, tournament creation and team registration, and actual FACEIT result import do not have backend endpoints yet. The schema includes data structures for these areas, but that does not make the workflows available.
 
@@ -108,4 +109,4 @@ npm test --prefix backend
 
 The tests use database/mail mocks and a local TLS test server. They do not require a production database or send real mail. They cover authentication and recovery, database initialization and TLS policy, request limits, chat, and frontend account/chat/admin state. Migration and backup restoration still need separate verification.
 
-Keep code simple, without code comments. UI copy is casual Polish, without long dashes or middle dots. Use small commits with English messages prefixed by `frontend:`, `backend:`, `database:`, or `docs:`. Database changes belong in the schema, seed, and upgrade files, with their behavior described in `database/README.md`. Existing production databases are upgraded manually as the database owner, never by app startup or a reset.
+Keep code simple, without code comments. Application copy belongs in the shared English and Polish catalogs and uses clear, professional language without colloquialisms, long dashes or middle dots. See the [localization guide](docs/I18N.md) for language selection, formatting, translation rules and accessibility scope. Use small commits with English messages prefixed by `frontend:`, `backend:`, `database:`, or `docs:`. Database changes belong in the schema, seed, and upgrade files, with their behavior described in `database/README.md`. Existing production databases are upgraded manually as the database owner, never by app startup or a reset.

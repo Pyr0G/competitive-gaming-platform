@@ -119,7 +119,7 @@ Local Compose loads schema and seed only on a new database volume. Back up and m
 ## Code rules
 
 - No comments in code. Keep it simple and readable.
-- UI copy in Polish, casual, no long dashes and no middle dots. Repository guidance and contribution documents are in English.
+- Keep all application-owned UI copy, accessible labels, validation messages and account emails in the shared English and Polish catalogs. Use clear, professional language, without colloquialisms, long dashes or middle dots. English is the fallback; automatic language selection uses Polish for the Poland region. Explicit language choices take precedence. See [localization guidance](docs/I18N.md). Repository guidance and contribution documents are in English.
 - Commit messages in English only, prefix with the area: `frontend:`, `backend:`, `database:`, `docs:`.
 - Database changes go into `schema.sql`, `seed.sql` and `upgrade.sql`. Describe them in `database/README.md`.
 - Seeded local test accounts use password `haslo123` and mails like `bartek@example.com`. Local demo admin login: `Admin` / `haslo123`. Production initialization creates no users.

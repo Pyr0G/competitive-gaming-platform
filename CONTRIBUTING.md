@@ -48,7 +48,7 @@ Keep `.env` and `.env.production` private and out of Git. Use local test data fo
 ## Make focused changes
 
 - Keep code simple and readable, without code comments.
-- Write UI copy in casual Polish, without long dashes or middle dots. Keep contribution documents and templates in English.
+- Write clear, professional English and Polish copy in the [shared translation catalogs](docs/I18N.md). Include accessible labels, placeholders, validation, empty states, admin views and emails. Do not hardcode application copy in HTML, JavaScript or API handlers. Avoid colloquialisms, long dashes and middle dots. Keep contribution documents and templates in English.
 - Follow the existing plain HTML, CSS, JavaScript, and Express structure. The backend serves the site and API from the same origin.
 - Keep each pull request focused on one topic. Separate unrelated fixes and formatting changes.
 - Update documentation when behavior, configuration, or setup changes.
@@ -66,6 +66,8 @@ npm test --prefix backend
 Run the suite for application changes and add or update tests when needed to cover changed behavior or a regression. Existing tests use database/mail mocks and a local TLS server. They do not require production access or send real emails. They do not verify database migrations or backup restoration.
 
 For frontend changes, also check the affected pages and user flows in a browser. Include signed-in, signed-out, captain, or admin states where relevant, and check the layout at desktop and mobile widths for visual changes.
+
+For localization changes, check both languages, automatic Poland selection, explicit language and region overrides, locale persistence, and a language change with an open form or chat draft. Catalog coverage, placeholder parity, plurals, API language negotiation and account emails have automated regression checks.
 
 Verify backend-dependent behavior with the local server and database running. Check `GET /api/health` and the affected API calls. The frontend can fall back to demo mode or show sample tournaments, so a rendered page alone is not evidence that data is being saved. Map veto and simulated FACEIT results currently stay in the browser.
 
