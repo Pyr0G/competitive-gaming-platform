@@ -36,7 +36,7 @@ const deferred = () => {
     return { promise, resolve, reject };
 };
 
-const createClient = () => {
+const createClient = (language = "en") => {
     const elements = new Map();
     const $ = (selector) => {
         if (!elements.has(selector)) elements.set(selector, new Element());
@@ -52,14 +52,15 @@ const createClient = () => {
     ]);
     const renders = [];
     const toasts = [];
+    const notices = [];
     const tournament = { id: 1, name: "Test Cup", status: "open", slots: 8, registered: [], deadline: "2099-01-01T12:00:00Z" };
     const context = vm.createContext({
-        ...createClientTranslations(),
+        ...createClientTranslations(language),
         CustomEvent: class { constructor(type) { this.type = type; } },
         $, $$: () => [], document: Object.assign(new Element(), { body: new Element() }),
         currentUser: { id: 1, admin: true }, current: tournament, TOURNAMENTS: [tournament], TEAMS: {}, ROLES: {},
         esc: (value) => String(value ?? "").replaceAll("<", "&lt;"), placesLeft: (n) => `${n} miejsc`,
-        toast: (...args) => toasts.push(args), loadAds: async () => [], loadNotice() {}, showNotice() {},
+        toast: (...args) => toasts.push(args), loadAds: async () => [], loadNotice() {}, showNotice: (notice) => notices.push(notice),
         api: async (path, body, method) => {
             requests.push({ path, body, method });
             const response = responses.get(path);
@@ -79,8 +80,28 @@ const createClient = () => {
         openAdmin, closeAdmin, runAdmin, renderTicker,
         select: (view) => { adminView = view; return drawAdmin(); }
     });`, context);
-    return { ...client, $, requests, responses, renders, toasts, context };
+    return { ...client, $, requests, responses, renders, toasts, notices, context };
 };
+
+for (const language of ["en", "pl"]) {
+    for (const target of ["button", "label"]) {
+        test(`clicking the ${language} announcement ${target} disables the announcement`, async () => {
+            const c = createClient(language);
+            await c.select("notice");
+            assert.match(c.$("#admin-main").innerHTML, /data-i18n-html="admin.noticeDisable"/);
+            const button = { id: "admin-notice-off" };
+            await c.$("#admin-main").emit("click", {
+                target: {
+                    id: target === "button" ? button.id : "",
+                    closest: (selector) => selector === "#admin-notice-off" ? button : null,
+                },
+            });
+            assert.equal(c.requests.filter((r) => r.path === "/admin/announcement" && r.method === "DELETE").length, 1);
+            assert.deepEqual(c.notices, [null]);
+            assert.ok(c.toasts.some(([message]) => message === "admin.noticeHidden"));
+        });
+    }
+}
 
 test("a delayed admin view cannot replace the newly selected form", async () => {
     const c = createClient();

@@ -207,7 +207,7 @@ adminMain.addEventListener("submit", async (e) => {
 });
 
 adminMain.addEventListener("click", async (e) => {
-    if (e.target.id === "admin-notice-off") {
+    if (e.target.closest("#admin-notice-off")) {
         await api("/admin/announcement", undefined, "DELETE");
         toast("admin.noticeHidden");
         showNotice(null);
