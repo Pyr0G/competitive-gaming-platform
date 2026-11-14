@@ -26,15 +26,15 @@ let listRequest = 0;
 let typingSentAt = -Infinity;
 
 const isChatView = (view, id) => view === chatView && chatId === id && !chatBox.hidden && currentUser;
+const clock = (value) => I18N.formatDate(value, { hour: "2-digit", minute: "2-digit" });
+let chatUnread = 0;
 
-const clock = (value) => {
-    const d = new Date(value);
-    return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
-};
 
 const setBadge = (n) => {
+    chatUnread = n;
     chatBadge.hidden = !n;
-    chatBadge.textContent = n > 9 ? "9+" : String(n);
+    chatBadge.textContent = n > 9 ? `${I18N.formatNumber(9)}+` : I18N.formatNumber(n);
+    $("#chat-btn").setAttribute("aria-label", tx(n ? "chat.unread" : "chat.title", { count: n }));
 };
 
 const refreshUnread = async () => {
@@ -46,15 +46,15 @@ const refreshUnread = async () => {
 };
 
 const bubble = (m) => `<div class="msg ${m.mine ? "mine" : "theirs"}" data-id="${m.id}">
-    <p>${esc(m.content)}</p>
-    <time>${clock(m.sent_at)}</time>
+    <p dir="auto">${esc(m.content)}</p>
+    <time datetime="${esc(m.sent_at)}" data-i18n-date="time">${clock(m.sent_at)}</time>
 </div>`;
 
 const refreshList = async () => {
     const view = chatView;
     const request = ++listRequest;
     if (!(await backend)) {
-        if (isChatView(view, null)) chatList.innerHTML = `<p class="chat-empty">Czat działa na stronie online. Zaloguj się tam i napisz do kogoś z ogłoszenia.</p>`;
+        if (isChatView(view, null)) chatList.innerHTML = `<p class="chat-empty">${tr("chat.demo")}</p>`;
         return;
     }
     if (!isChatView(view, null)) return;
@@ -67,11 +67,11 @@ const refreshList = async () => {
             <span class="avatar avatar-player">${esc(c.nick[0])}</span>
             <span>
                 <b>${esc(c.nick)}</b>
-                <em>${esc(c.content || "Napisz pierwszą wiadomość")}</em>
+                <em dir="auto">${c.content ? esc(c.content) : tr("chat.firstMessage")}</em>
             </span>
             ${c.unread ? `<i>${c.unread}</i>` : ""}
         </button>`).join("")
-        : `<p class="chat-empty">Tu pojawią się rozmowy. Wejdź w ogłoszenie i kliknij Napisz.</p>`;
+        : `<p class="chat-empty">${tr("chat.empty")}</p>`;
 };
 
 const showList = async () => {
@@ -79,25 +79,27 @@ const showList = async () => {
     chatId = null;
     lastMsg = 0;
     chatThread.hidden = true;
-    chatList.innerHTML = '<p class="chat-empty">Wczytywanie rozmów...</p>';
+    chatList.innerHTML = `<p class="chat-empty">${tr("chat.loading")}</p>`;
     chatList.hidden = false;
     chatBack.hidden = true;
     chatMenu.hidden = true;
     chatPop.hidden = true;
     chatMore.setAttribute("aria-expanded", "false");
-    chatName.textContent = "Wiadomości";
+    I18N.bind(chatName, "chat.title");
+    delete chatStatus.dataset.i18n;
     chatStatus.textContent = "";
     await refreshList();
 };
 
 const paintThread = (data, append) => {
     const c = data.conversation;
+    delete chatName.dataset.i18n;
     chatName.textContent = c.nick;
-    chatStatus.textContent = c.blocked ? "Zablokowany" : c.blocked_by ? "Nie przyjmuje wiadomości" : "Rozmowa";
+    I18N.bind(chatStatus, c.blocked ? "chat.blocked" : c.blocked_by ? "chat.unavailable" : "chat.conversation");
     chatBlocked.hidden = !c.blocked;
     chatForm.hidden = Boolean(c.blocked || c.blocked_by || !chatReport.hidden);
     chatTyping.hidden = !c.typing || c.blocked;
-    $("span", chatTyping).textContent = `${c.nick} pisze`;
+    I18N.bind($("span", chatTyping), "chat.typing", { nick: c.nick });
     $("[data-chat-act=block]", chatPop).hidden = c.blocked;
     if (!append) chatMsgs.innerHTML = "";
     const atBottom = chatMsgs.scrollHeight - chatMsgs.scrollTop - chatMsgs.clientHeight < 80;
@@ -130,21 +132,22 @@ const openThread = async (id) => {
     chatForm.hidden = true;
     chatBlocked.hidden = true;
     chatTyping.hidden = true;
-    chatName.textContent = "Wczytywanie...";
+    I18N.bind(chatName, "common.loading");
+    delete chatStatus.dataset.i18n;
     chatStatus.textContent = "";
     chatInput.value = "";
     chatInput.style.height = "";
     chatMsgs.innerHTML = "";
     await refreshThread().catch((err) => {
-        if (isChatView(view, id)) toast(err.message, "err");
+        if (isChatView(view, id)) toastError(err);
     });
     if (isChatView(view, id)) refreshUnread();
 };
 
 const openChat = async (userId) => {
-    if (!currentUser) return openModal("login", "Zaloguj się, żeby napisać do gracza.");
+    if (!currentUser) return openModal("login", "chat.signIn");
     const view = ++chatView;
-    if (!(await backend)) return toast("Czat działa na stronie online.", "err");
+    if (!(await backend)) return toast("chat.offline", "err");
     if (view !== chatView || !currentUser) return;
     chatBox.hidden = false;
     document.body.classList.add("chat-on");
@@ -155,7 +158,7 @@ const openChat = async (userId) => {
             await openThread(data.id);
         } catch (err) {
             if (view !== chatView || !currentUser) return;
-            toast(err.message, "err");
+            toastError(err);
             await showList();
         }
     } else {
@@ -193,7 +196,7 @@ const pollChat = async () => {
 
 document.addEventListener("click", (e) => {
     if (e.target.closest("[data-chat-open]")) {
-        if (!currentUser) return openModal("login", "Zaloguj się, żeby zobaczyć wiadomości.");
+        if (!currentUser) return openModal("login", "chat.signInInbox");
         openChat();
     }
     const start = e.target.closest("[data-chat]");
@@ -231,7 +234,7 @@ chatForm.addEventListener("submit", async (e) => {
     } catch (err) {
         if (!isChatView(view, id)) return;
         if (!chatInput.value) chatInput.value = content;
-        toast(err.message, "err");
+        toastError(err);
         return;
     }
     if (isChatView(view, id)) await refreshThread().catch(() => {});
@@ -263,12 +266,12 @@ $$("[data-chat-act]").forEach((btn) => btn.addEventListener("click", async () =>
         if (act === "block") {
             await api(`/chat/${id}/block`, {});
             if (!isChatView(view, id)) return;
-            toast("Gracz zablokowany. Nie napisze już do Ciebie.");
+            toast("chat.userBlocked");
             openThread(id);
         } else if (act === "unblock") {
             await api(`/chat/${id}/block`, undefined, "DELETE");
             if (!isChatView(view, id)) return;
-            toast("Gracz odblokowany.");
+            toast("chat.userUnblocked");
             openThread(id);
         } else if (act === "report") {
             chatReport.hidden = false;
@@ -276,7 +279,7 @@ $$("[data-chat-act]").forEach((btn) => btn.addEventListener("click", async () =>
             chatPop.hidden = true;
         }
     } catch (err) {
-        if (isChatView(view, id)) toast(err.message, "err");
+        if (isChatView(view, id)) toastError(err);
     }
 }));
 
@@ -286,16 +289,16 @@ chatReport.addEventListener("submit", async (e) => {
     const view = chatView;
     if (!id) return;
     const reason = chatReport.reason.value.trim();
-    if (reason.length < 8) return toast("Dopisz, co się stało. Minimum 8 znaków.", "err");
+    if (reason.length < 8) return toast("chat.reasonShort", "err");
     try {
         await api(`/chat/${id}/report`, { reason });
         if (!isChatView(view, id)) return;
         chatReport.reset();
         chatReport.hidden = true;
         chatForm.hidden = false;
-        toast("Zgłoszenie poszło do admina.");
+        toast("chat.reportSent");
     } catch (err) {
-        if (isChatView(view, id)) toast(err.message, "err");
+        if (isChatView(view, id)) toastError(err);
     }
 });
 
@@ -319,6 +322,8 @@ document.addEventListener("cgp:user", () => {
         chatReport.hidden = true;
         chatName.textContent = "";
         chatStatus.textContent = "";
+        delete chatName.dataset.i18n;
+        delete chatStatus.dataset.i18n;
         chatTyping.hidden = true;
         $("span", chatTyping).textContent = "";
         chatForm.hidden = true;
@@ -332,3 +337,4 @@ document.addEventListener("cgp:user", () => {
 
 chatTick = setInterval(pollChat, 2500);
 refreshUnread();
+document.addEventListener("cgp:languagechange", () => setBadge(chatUnread));

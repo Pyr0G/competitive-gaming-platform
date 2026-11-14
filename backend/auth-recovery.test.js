@@ -122,14 +122,14 @@ test("password recovery revokes existing sessions on protected and optional-auth
     assert.equal(fresh.status, 200);
     assert.equal((await request("/chat/1", { cookie: cookieOf(fresh) })).status, 200);
     assert.equal((await request("/auth/reset", { body: { token: "second", password: "another-password" } })).status, 400);
-    assert.equal((await request("/auth/verify?token=old-verification")).headers.get("location"), "/?verified=0");
+    assert.equal((await request("/auth/verify?token=old-verification")).headers.get("location"), "/?verified=0&lang=en&region=GB");
     assert.ok(trace.findIndex((sql) => sql.includes("FOR UPDATE OF u")) < trace.findIndex((sql) => sql.includes("UPDATE password_resets")));
 });
 
 test("activation issues a credential-bound session and rejects it after recovery", async () => {
     await setup();
     const activated = await request("/auth/verify?token=verification");
-    assert.equal(activated.headers.get("location"), "/?verified=1");
+    assert.equal(activated.headers.get("location"), "/?verified=1&lang=en&region=GB");
     const cookie = cookieOf(activated);
     assert.equal((await request("/chat/1", { cookie })).status, 200);
     await request("/auth/reset", { body: { token: "first", password: "new-password" } });

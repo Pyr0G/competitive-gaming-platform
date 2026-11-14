@@ -1,3 +1,4 @@
+import { failure } from "./i18n.js";
 export const createRateLimiter = ({ maxEntries = 10000, now = Date.now } = {}) => {
     const hits = new Map();
     let nextCleanup = 0;
@@ -20,14 +21,14 @@ export const createRateLimiter = ({ maxEntries = 10000, now = Date.now } = {}) =
         if (!entry) {
             if (hits.size >= maxEntries) {
                 res.set("Retry-After", "60");
-                return res.status(503).json({ error: "Serwer ma teraz za dużo zgłoszeń. Spróbuj za chwilę." });
+                return res.status(503).json(failure(req, "error.capacity"));
             }
             entry = { count: 0, reset: time + minutes * 60000 };
             hits.set(key, entry);
         }
         if (entry.count >= max) {
             res.set("Retry-After", String(Math.max(1, Math.ceil((entry.reset - time) / 1000))));
-            return res.status(429).json({ error: "Za dużo prób. Odczekaj chwilę i spróbuj znowu." });
+            return res.status(429).json(failure(req, "error.rateLimited"));
         }
         entry.count++;
         next();
@@ -40,7 +41,7 @@ export const createWorkLimiter = (maxConcurrent = 2) => {
     return (handler) => async (req, res, next) => {
         if (active >= maxConcurrent) {
             res.set("Retry-After", "1");
-            return res.status(503).json({ error: "Serwer jest teraz zajęty. Spróbuj za chwilę." });
+            return res.status(503).json(failure(req, "error.busy"));
         }
         active++;
         try {

@@ -1,3 +1,4 @@
+import { message, failure, translateRequest, localeQuery } from "./i18n.js";
 import crypto from "node:crypto";
 import { Router } from "express";
 import bcrypt from "bcryptjs";
@@ -48,16 +49,16 @@ export const readSession = async (req, res, next) => {
 };
 
 export const requireUser = async (req, res, next) => {
-    if (!req.userId) return res.status(401).json({ error: "Zaloguj się, żeby to zrobić." });
+    if (!req.userId) return res.status(401).json(failure(req, "error.signIn"));
     const { rows } = await query("SELECT is_admin, banned_at FROM users WHERE id = $1", [req.userId]);
-    if (!rows.length) return res.status(401).json({ error: "Zaloguj się, żeby to zrobić." });
-    if (rows[0].banned_at) return res.status(403).json({ error: "To konto zostało zablokowane." });
+    if (!rows.length) return res.status(401).json(failure(req, "error.signIn"));
+    if (rows[0].banned_at) return res.status(403).json(failure(req, "error.accountBanned"));
     req.isAdmin = rows[0].is_admin;
     next();
 };
 
 export const requireAdmin = (req, res, next) => requireUser(req, res, () => {
-    if (!req.isAdmin) return res.status(403).json({ error: "Tylko dla administratorów." });
+    if (!req.isAdmin) return res.status(403).json(failure(req, "error.adminOnly"));
     next();
 });
 
@@ -70,10 +71,10 @@ const setSession = (res, user) => {
     });
 };
 
-const createVerification = async (user) => {
+const createVerification = async (user, req) => {
     const { token, hash } = newToken();
     await query("INSERT INTO email_verifications (user_id, token_hash) VALUES ($1, $2)", [user.id, hash]);
-    await sendVerifyMail(user.email, user.nick, `${config.appUrl}/api/auth/verify?token=${token}`);
+    await sendVerifyMail(user.email, user.nick, `${config.appUrl}/api/auth/verify?token=${token}&${localeQuery(req)}`, translateRequest(req).language);
 };
 
 auth.post("/register", limit("register", 10, 15), passwordWork(async (req, res) => {
@@ -81,9 +82,9 @@ auth.post("/register", limit("register", 10, 15), passwordWork(async (req, res) 
     const email = String(req.body.email || "").trim().toLowerCase();
     const password = String(req.body.password || "");
 
-    if (!nickPattern.test(nick)) return res.status(400).json({ error: "Nick musi mieć od 3 do 32 znaków: litery, cyfry oraz _ . -" });
-    if (!validEmail(email)) return res.status(400).json({ error: "Podaj poprawny e-mail." });
-    if (password.length < 8) return res.status(400).json({ error: "Hasło musi mieć co najmniej 8 znaków." });
+    if (!nickPattern.test(nick)) return res.status(400).json(failure(req, "error.nickInvalid"));
+    if (!validEmail(email)) return res.status(400).json(failure(req, "auth.emailInvalid"));
+    if (password.length < 8) return res.status(400).json(failure(req, "auth.passwordLength"));
 
     try {
         const hash = await bcrypt.hash(password, 10);
@@ -92,19 +93,19 @@ auth.post("/register", limit("register", 10, 15), passwordWork(async (req, res) 
             [nick, email, hash],
         );
         try {
-            await createVerification(rows[0]);
+            await createVerification(rows[0], req);
         } catch (mailErr) {
             console.error(mailErr);
-            return res.status(201).json({ message: "Konto założone, ale mail nie wyszedł. Spróbuj wysłać link ponownie z okna logowania." });
+            return res.status(201).json(message(req, "auth.mailFailed"));
         }
-        res.status(201).json({ message: `Konto założone. Kliknij link, który wysłaliśmy na ${email}, żeby je aktywować.` });
+        res.status(201).json(message(req, "auth.registered", { email }));
     } catch (err) {
         if (err.code === "23505") {
-            const field = err.constraint === "users_email_unique" ? "Ten e-mail ma już konto." : "Ten nick jest już zajęty.";
-            return res.status(409).json({ error: field });
+            const field = err.constraint === "users_email_unique" ? "error.emailTaken" : "error.nickTaken";
+            return res.status(409).json(failure(req, field));
         }
         console.error(err);
-        res.status(500).json({ error: "Nie udało się założyć konta. Spróbuj za chwilę." });
+        res.status(500).json(failure(req, "error.registrationFailed"));
     }
 }));
 
@@ -128,22 +129,22 @@ auth.get("/verify", async (req, res) => {
         const { rows: users } = await run("UPDATE users SET email_verified_at = NOW() WHERE id = $1 RETURNING id, password_hash", [owners[0].id]);
         return users[0] || null;
     });
-    if (!user) return res.redirect("/?verified=0");
+    if (!user) return res.redirect(`/?verified=0&${localeQuery(req)}`);
     setSession(res, user);
-    res.redirect("/?verified=1");
+    res.redirect(`/?verified=1&${localeQuery(req)}`);
 });
 
 auth.post("/resend", limit("resend", 5, 15), async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
     const { rows } = await query("SELECT id, nick, email FROM users WHERE LOWER(email) = $1 AND email_verified_at IS NULL", [email]);
-    if (rows.length) await createVerification(rows[0]).catch((err) => console.error(err));
-    res.json({ message: "Jeśli to konto czeka na aktywację, wysłaliśmy nowy link." });
+    if (rows.length) await createVerification(rows[0], req).catch((err) => console.error(err));
+    res.json(message(req, "auth.resent"));
 });
 
 auth.post("/login", limit("login", 20, 15), passwordWork(async (req, res) => {
     const login = String(req.body.login || "").trim();
     const password = String(req.body.password || "");
-    if (!login || !password) return res.status(400).json({ error: "Wpisz nick albo e-mail i hasło." });
+    if (!login || !password) return res.status(400).json(failure(req, "auth.credentialsRequired"));
 
     const { rows } = await query(
         "SELECT id, nick, email, password_hash, email_verified_at, is_admin, banned_at FROM users WHERE LOWER(nick) = LOWER($1) OR LOWER(email) = LOWER($1)",
@@ -151,11 +152,11 @@ auth.post("/login", limit("login", 20, 15), passwordWork(async (req, res) => {
     );
     const user = rows[0];
     if (!user || !(await bcrypt.compare(password, user.password_hash))) {
-        return res.status(401).json({ error: "Zły nick, e-mail albo hasło." });
+        return res.status(401).json(failure(req, "error.credentials"));
     }
-    if (user.banned_at) return res.status(403).json({ error: "To konto zostało zablokowane przez administratora." });
+    if (user.banned_at) return res.status(403).json(failure(req, "error.bannedByAdmin"));
     if (!user.email_verified_at) {
-        return res.status(403).json({ error: "Najpierw potwierdź maila. Link jest w skrzynce (zajrzyj też do spamu).", unverified: user.email });
+        return res.status(403).json({ ...failure(req, "error.emailUnverified"), unverified: user.email });
     }
 
     setSession(res, user);
@@ -164,7 +165,7 @@ auth.post("/login", limit("login", 20, 15), passwordWork(async (req, res) => {
 
 auth.post("/logout", (req, res) => {
     res.clearCookie(COOKIE);
-    res.json({ message: "Wylogowano." });
+    res.json(message(req, "auth.signedOut"));
 });
 
 auth.get("/me", async (req, res) => {
@@ -184,20 +185,20 @@ auth.get("/me", async (req, res) => {
 
 auth.post("/forgot", limit("forgot", 5, 15), async (req, res) => {
     const email = String(req.body.email || "").trim().toLowerCase();
-    if (!validEmail(email)) return res.status(400).json({ error: "Podaj poprawny e-mail." });
+    if (!validEmail(email)) return res.status(400).json(failure(req, "auth.emailInvalid"));
 
     const { rows } = await query("SELECT id, nick, email FROM users WHERE LOWER(email) = $1", [email]);
     if (rows.length) {
         const { token, hash } = newToken();
         await query("INSERT INTO password_resets (user_id, token_hash) VALUES ($1, $2)", [rows[0].id, hash]);
-        await sendResetMail(rows[0].email, rows[0].nick, `${config.appUrl}/?reset=${token}`).catch((err) => console.error(err));
+        await sendResetMail(rows[0].email, rows[0].nick, `${config.appUrl}/?reset=${token}&${localeQuery(req)}`, translateRequest(req).language).catch((err) => console.error(err));
     }
-    res.json({ message: `Jeśli konto z adresem ${email} istnieje, za chwilę przyjdzie link do zmiany hasła.` });
+    res.json(message(req, "auth.resetRequested", { email }));
 });
 
 auth.post("/reset", limit("reset", 10, 15), passwordWork(async (req, res) => {
     const password = String(req.body.password || "");
-    if (password.length < 8) return res.status(400).json({ error: "Hasło musi mieć co najmniej 8 znaków." });
+    if (password.length < 8) return res.status(400).json(failure(req, "auth.passwordLength"));
 
     const tokenHash = hashToken(req.body.token);
     const passwordHash = await bcrypt.hash(password, 10);
@@ -224,6 +225,6 @@ auth.post("/reset", limit("reset", 10, 15), passwordWork(async (req, res) => {
         await run("UPDATE email_verifications SET used_at = NOW() WHERE user_id = $1 AND used_at IS NULL", [users[0].id]);
         return true;
     });
-    if (!changed) return res.status(400).json({ error: "Link wygasł albo był już użyty. Poproś o nowy." });
-    res.json({ message: "Hasło zmienione. Możesz się zalogować." });
+    if (!changed) return res.status(400).json(failure(req, "error.resetExpired"));
+    res.json(message(req, "auth.passwordChanged"));
 }));

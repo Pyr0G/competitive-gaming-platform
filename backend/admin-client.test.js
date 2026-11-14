@@ -1,3 +1,4 @@
+import { createClientTranslations } from "./client-test-support.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -9,6 +10,7 @@ const tickerSource = appSource.slice(appSource.indexOf("let tickerAds ="), appSo
 const tournamentSource = appSource.slice(appSource.indexOf("const applyTournaments ="), appSource.indexOf("const notice ="));
 
 class Element {
+    dataset = {};
     hidden = false;
     innerHTML = "";
     textContent = "";
@@ -19,6 +21,8 @@ class Element {
     addEventListener(type, handler) {
         this.listeners.set(type, handler);
     }
+
+    dispatchEvent() {}
 
     async emit(type, event) {
         await this.listeners.get(type)?.(event);
@@ -50,6 +54,8 @@ const createClient = () => {
     const toasts = [];
     const tournament = { id: 1, name: "Test Cup", status: "open", slots: 8, registered: [], deadline: "2099-01-01T12:00:00Z" };
     const context = vm.createContext({
+        ...createClientTranslations(),
+        CustomEvent: class { constructor(type) { this.type = type; } },
         $, $$: () => [], document: Object.assign(new Element(), { body: new Element() }),
         currentUser: { id: 1, admin: true }, current: tournament, TOURNAMENTS: [tournament], TEAMS: {}, ROLES: {},
         esc: (value) => String(value ?? "").replaceAll("<", "&lt;"), placesLeft: (n) => `${n} miejsc`,
@@ -140,7 +146,7 @@ test("an old report list cannot replace a newer report count", async () => {
     await c.select("stats");
     old.resolve({ reports: [] });
     await loading;
-    assert.equal(c.$("#admin-reports").textContent, 2);
+    assert.match(c.$("#admin-reports").innerHTML, />2<\/span>/);
 });
 
 test("a current request failure is still shown", async () => {
@@ -155,7 +161,7 @@ test("cancellation refreshes public cards and removes the last live ticker item"
     const live = { id: 1, name: "Live Cup", status: "live", rounds: [[{ a: "AAA", b: "BBB", state: "pending" }]] };
     c.context.TOURNAMENTS = [live];
     c.renderTicker();
-    assert.match(c.$("#ticker-track").innerHTML, /<b>AAA<\/b> vs <b>BBB<\/b>/);
+    assert.match(c.$("#ticker-track").innerHTML, /AAA vs BBB: awaiting result/);
     c.responses.set("/tournaments", { teams: {}, tournaments: [{ ...live, status: "done" }] });
     await c.select("tournaments");
     await c.runAdmin("cancel", "1");
@@ -183,7 +189,7 @@ test("a failed public refresh explains the saved change and still refreshes the 
     c.responses.set("/tournaments", () => { throw new Error("Network unavailable"); });
     await c.select("tournaments");
     await c.runAdmin("cancel", "1");
-    assert.ok(c.toasts.some(([message, kind]) => kind === "err" && /Zmiana zapisana/.test(message)));
+    assert.ok(c.toasts.some(([message, kind]) => kind === "err" && message === "admin.refreshFailed"));
     assert.equal(c.requests.at(-1).path, "/admin/tournaments");
-    assert.match(c.$("#admin-main").innerHTML, /Turnieje/);
+    assert.match(c.$("#admin-main").innerHTML, /Tournaments/);
 });

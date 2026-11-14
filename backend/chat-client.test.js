@@ -1,3 +1,4 @@
+import { createClientTranslations } from "./client-test-support.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -87,11 +88,12 @@ const createClient = async () => {
     }));
     let tick;
     const context = vm.createContext({
+        ...createClientTranslations(),
         $, $$: () => [...actions.values()], document, window, modal: $("#modal"), currentUser: { id: 1 }, backend: Promise.resolve(true),
         localStorage: { setItem: (...args) => signals.push(args) },
         CustomEvent: class { constructor(type) { this.type = type; } },
         esc: (value) => String(value).replaceAll("<", "&lt;"),
-        toast: (...args) => toasts.push(args), openModal() {},
+        toast: (...args) => toasts.push(args), toastError: (error) => toasts.push([error.message, "err"]), openModal() {},
         setInterval: (handler) => { tick = handler; return 1; },
         Date: class extends Date { static now() { return state.time; } },
         api: (path, body) => {

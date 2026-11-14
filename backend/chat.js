@@ -1,3 +1,4 @@
+import { failure } from "./i18n.js";
 import { Router } from "express";
 import { query } from "./db.js";
 import { limit, requireUser } from "./auth.js";
@@ -59,10 +60,10 @@ chat.get("/", requireUser, async (req, res) => {
 chat.post("/open", requireUser, limit("chat:open", 20, 10), async (req, res) => {
     const peer = Number(req.body.userId);
     if (!Number.isInteger(peer) || peer === req.userId) {
-        return res.status(400).json({ error: "Wybierz gracza, do którego chcesz napisać." });
+        return res.status(400).json(failure(req, "error.peerRequired"));
     }
     const { rows: people } = await query("SELECT id FROM users WHERE id = $1 AND banned_at IS NULL", [peer]);
-    if (!people.length) return res.status(404).json({ error: "Nie ma takiego gracza." });
+    if (!people.length) return res.status(404).json(failure(req, "error.playerMissing"));
 
     const [a, b] = pair(req.userId, peer);
     const { rows } = await query(
@@ -77,7 +78,7 @@ chat.post("/open", requireUser, limit("chat:open", 20, 10), async (req, res) => 
 chat.get("/:id", requireUser, async (req, res) => {
     const id = Number(req.params.id);
     const { rows } = await findConv(id, req.userId);
-    if (!rows.length) return res.status(404).json({ error: "Nie ma takiej rozmowy." });
+    if (!rows.length) return res.status(404).json(failure(req, "error.conversationMissing"));
 
     const peer = peerOf(rows[0], req.userId);
     await query(
@@ -117,11 +118,11 @@ chat.post("/:id", requireUser, limit("chat:send", 40, 10), async (req, res) => {
     const id = Number(req.params.id);
     const content = String(req.body.content || "").trim();
     if (content.length < 1 || content.length > 1000) {
-        return res.status(400).json({ error: "Wiadomość musi mieć od 1 do 1000 znaków." });
+        return res.status(400).json(failure(req, "error.messageLength"));
     }
 
     const { rows } = await findConv(id, req.userId);
-    if (!rows.length) return res.status(404).json({ error: "Nie ma takiej rozmowy." });
+    if (!rows.length) return res.status(404).json(failure(req, "error.conversationMissing"));
 
     const peer = peerOf(rows[0], req.userId);
     const { rows: block } = await query(
@@ -130,7 +131,7 @@ chat.post("/:id", requireUser, limit("chat:send", 40, 10), async (req, res) => {
     );
     if (block.length) {
         const mine = Number(block[0].blocker_id) === req.userId;
-        return res.status(403).json({ error: mine ? "Odblokuj gracza, żeby znowu pisać." : "Ten gracz nie przyjmuje wiadomości." });
+        return res.status(403).json(failure(req, mine ? "error.unblockFirst" : "error.peerUnavailable"));
     }
 
     const { rows: saved } = await query(
@@ -145,12 +146,12 @@ chat.post("/:id", requireUser, limit("chat:send", 40, 10), async (req, res) => {
 
 chat.post("/:id/typing", requireUser, limit("chat:typing", 120, 1), async (req, res) => {
     const id = Number(req.params.id);
-    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ error: "Nie ma takiej rozmowy." });
+    if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json(failure(req, "error.conversationMissing"));
     const { rows } = await findConv(id, req.userId);
-    if (!rows.length) return res.status(404).json({ error: "Nie ma takiej rozmowy." });
+    if (!rows.length) return res.status(404).json(failure(req, "error.conversationMissing"));
     if (!typing.set(`${id}:${req.userId}`)) {
         res.set("Retry-After", "3");
-        return res.status(503).json({ error: "Serwer jest teraz zajęty. Spróbuj za chwilę." });
+        return res.status(503).json(failure(req, "error.busy"));
     }
     res.json({ ok: true });
 });
@@ -158,7 +159,7 @@ chat.post("/:id/typing", requireUser, limit("chat:typing", 120, 1), async (req, 
 chat.post("/:id/block", requireUser, async (req, res) => {
     const id = Number(req.params.id);
     const { rows } = await findConv(id, req.userId);
-    if (!rows.length) return res.status(404).json({ error: "Nie ma takiej rozmowy." });
+    if (!rows.length) return res.status(404).json(failure(req, "error.conversationMissing"));
     const peer = peerOf(rows[0], req.userId);
     await query(
         "INSERT INTO user_blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING",
@@ -170,7 +171,7 @@ chat.post("/:id/block", requireUser, async (req, res) => {
 chat.delete("/:id/block", requireUser, async (req, res) => {
     const id = Number(req.params.id);
     const { rows } = await findConv(id, req.userId);
-    if (!rows.length) return res.status(404).json({ error: "Nie ma takiej rozmowy." });
+    if (!rows.length) return res.status(404).json(failure(req, "error.conversationMissing"));
     await query("DELETE FROM user_blocks WHERE blocker_id = $1 AND blocked_id = $2", [req.userId, peerOf(rows[0], req.userId)]);
     res.json({ ok: true });
 });
@@ -179,10 +180,10 @@ chat.post("/:id/report", requireUser, limit("chat:report", 8, 60), async (req, r
     const id = Number(req.params.id);
     const reason = String(req.body.reason || "").trim();
     if (reason.length < 8 || reason.length > 500) {
-        return res.status(400).json({ error: "Opisz zgłoszenie, od 8 do 500 znaków." });
+        return res.status(400).json(failure(req, "error.reportLength"));
     }
     const { rows } = await findConv(id, req.userId);
-    if (!rows.length) return res.status(404).json({ error: "Nie ma takiej rozmowy." });
+    if (!rows.length) return res.status(404).json(failure(req, "error.conversationMissing"));
     const peer = peerOf(rows[0], req.userId);
     await query(
         "INSERT INTO user_reports (reporter_id, reported_id, conversation_id, reason) VALUES ($1, $2, $3, $4)",

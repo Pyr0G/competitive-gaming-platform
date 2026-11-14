@@ -2,13 +2,22 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const esc = (text) => String(text ?? "").replace(/[&<>"']/g, (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]);
+const I18N = window.CGP_I18N;
+const tx = (key, values) => I18N.t(key, values);
+const tr = (key, values) => I18N.fragment(key, values);
+const localizedResponse = (data) => data.messageKey ? tr(data.messageKey, data.values) : esc(data.message || "");
+const localizedError = (error) => error.data?.errorKey ? tr(error.data.errorKey, error.data.values) : esc(error.message);
+const dateTime = (value) => I18N.formatDate(value, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const num = (value) => `<span data-i18n-number="${Number(value) || 0}">${I18N.formatNumber(Number(value) || 0)}</span>`;
 
 const intro = $("#intro");
-const introDelay = sessionStorage.getItem("cgp-intro") || reducedMotion ? 0 : 1100;
+let introSeen = false;
+try { introSeen = Boolean(sessionStorage.getItem("cgp-intro")); } catch {}
+const introDelay = introSeen || reducedMotion ? 0 : 1100;
 
 if (introDelay) {
     document.documentElement.style.setProperty("--intro", `${introDelay / 1000}s`);
-    sessionStorage.setItem("cgp-intro", "1");
+    try { sessionStorage.setItem("cgp-intro", "1"); } catch {}
     setTimeout(() => intro.classList.add("done"), introDelay + 100);
 } else {
     intro.classList.add("skip");
@@ -28,17 +37,32 @@ onScroll();
 
 const nav = $("#nav");
 const burger = $("#burger");
+const mobileNav = window.matchMedia("(max-width: 1180px)");
+const syncNavigation = () => { nav.inert = mobileNav.matches && !nav.classList.contains("open"); };
+mobileNav.addEventListener("change", syncNavigation);
+syncNavigation();
 
 burger.addEventListener("click", () => {
     const open = nav.classList.toggle("open");
     burger.classList.toggle("open", open);
     burger.setAttribute("aria-expanded", open);
+    syncNavigation();
 });
 
 $$("a", nav).forEach((link) => link.addEventListener("click", () => {
     nav.classList.remove("open");
     burger.classList.remove("open");
+    burger.setAttribute("aria-expanded", "false");
+    syncNavigation();
 }));
+document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || !nav.classList.contains("open")) return;
+    nav.classList.remove("open");
+    burger.classList.remove("open");
+    burger.setAttribute("aria-expanded", "false");
+    syncNavigation();
+    burger.focus();
+});
 
 const spyLinks = $$("[data-spy]");
 const ink = $("#nav-ink");
@@ -98,17 +122,21 @@ observeReveal();
 setTimeout(() => {
     $$("[data-count]").forEach((el) => {
         const target = Number(el.dataset.count);
+        if (reducedMotion) {
+            el.textContent = I18N.formatNumber(target);
+            return;
+        }
         const start = performance.now();
 
         const tick = (now) => {
             const p = Math.min((now - start) / 1200, 1);
-            el.textContent = Math.round(target * (1 - Math.pow(1 - p, 3)));
+            el.textContent = I18N.formatNumber(Math.round(target * (1 - Math.pow(1 - p, 3))));
             if (p < 1) requestAnimationFrame(tick);
         };
 
         requestAnimationFrame(tick);
     });
-}, introDelay + 800);
+}, reducedMotion ? 0 : introDelay + 800);
 
 const glyphs = "ABCDEFGHIJKLMNOPRSTUWYZ0123456789#%&*/";
 
@@ -117,10 +145,16 @@ const scramble = (el) => {
     el.dataset.busy = "1";
     const final = el.dataset.text || el.textContent;
     el.dataset.text = final;
+    const language = I18N.language;
     let frame = 0;
     const total = 22;
 
     const step = () => {
+        if (language !== I18N.language) {
+            delete el.dataset.busy;
+            el.textContent = tx(el.dataset.i18n);
+            return;
+        }
         const revealed = Math.floor((frame / total) * final.length);
         el.textContent = [...final].map((ch, i) => {
             if (ch === " " || i < revealed) return ch;
@@ -140,7 +174,7 @@ const scramble = (el) => {
 
 $$("[data-scramble]").forEach((el) => {
     if (!reducedMotion) setTimeout(() => scramble(el), introDelay + 700);
-    el.addEventListener("mouseenter", () => scramble(el));
+    if (!reducedMotion) el.addEventListener("mouseenter", () => scramble(el));
 });
 
 const hero = $("#top");
@@ -231,7 +265,9 @@ const showStep = (index) => {
             pane.classList.add("active");
         }
     });
-    screenPath.textContent = stepButtons[index].dataset.path;
+    I18N.bind(screenPath, ["how.path.register", "how.path.recruitment", "how.path.chat", "how.path.results"][index]);
+    stepButtons.forEach((button, i) => button.setAttribute("aria-pressed", String(i === index)));
+    panes.forEach((pane, i) => { pane.inert = i !== index; });
 };
 
 stepButtons.forEach((btn, i) => {
@@ -256,25 +292,25 @@ new IntersectionObserver(([entry]) => {
     if (!tutorial.matches(":hover")) steps.classList.toggle("paused", !entry.isIntersecting);
 }, { threshold: 0.35 }).observe(tutorial);
 
-const pad = (n) => String(n).padStart(2, "0");
+const pad = (n) => I18N.formatNumber(n, { minimumIntegerDigits: 2, useGrouping: false });
 
 const renderCountdowns = () => {
     $$(".countdown[data-deadline]").forEach((el) => {
         const diff = new Date(el.dataset.deadline) - Date.now();
         if (diff <= 0) {
             el.className = "countdown closed";
-            el.textContent = "Zapisy zamknięte, drabinka się losuje.";
+            el.textContent = tx("countdown.closed");
             return;
         }
         const d = Math.floor(diff / 86400000);
         const h = Math.floor(diff / 3600000) % 24;
         const m = Math.floor(diff / 60000) % 60;
         const s = Math.floor(diff / 1000) % 60;
-        el.innerHTML = `<p class="countdown-title">Zapisy zamykają się za</p>
-            <div><b>${d}</b><span>dni</span></div>
-            <div><b>${pad(h)}</b><span>godz.</span></div>
-            <div><b>${pad(m)}</b><span>min</span></div>
-            <div><b>${pad(s)}</b><span>sek</span></div>`;
+        el.innerHTML = `<p class="countdown-title">${tr("countdown.title")}</p>
+            <div><b>${I18N.formatNumber(d)}</b><span>${tr("countdown.days", { count: d })}</span></div>
+            <div><b>${pad(h)}</b><span>${tr("countdown.hours", { count: h })}</span></div>
+            <div><b>${pad(m)}</b><span>${tr("countdown.minutes")}</span></div>
+            <div><b>${pad(s)}</b><span>${tr("countdown.seconds")}</span></div>`;
     });
 };
 
@@ -287,9 +323,9 @@ const CARD_IMAGES = ["setup-sm", "lan-sm", "keyboard-sm", "hero-sm"];
 let tFilter = "all";
 
 const slotsGrid = (filled, total) => `<div class="slots-grid" style="grid-template-columns: repeat(${Math.min(total, 8)}, 1fr)">${Array.from({ length: total }, (_, k) => `<i class="${k < filled ? "full" : ""}" style="--k: ${k}"></i>`).join("")}</div>
-    <p class="slots-label"><b>${filled}</b> / ${total} drużyn zapisanych</p>`;
+    <p class="slots-label">${tr("tournaments.slots", { filled: I18N.formatNumber(filled), total: I18N.formatNumber(total) })}</p>`;
 
-const signupButton = `<button type="button" class="btn btn-glow" data-modal="register" data-note="Żeby zapisać drużynę, załóż konto albo się zaloguj.">Zapisz drużynę</button>`;
+const signupButton = () => `<button type="button" class="btn btn-glow" disabled>${tr("tournaments.register")}</button>`;
 
 const tCard = (t, i) => {
     const matches = (t.rounds || []).flat().filter((m) => !m.bye);
@@ -302,32 +338,32 @@ const tCard = (t, i) => {
     let actions;
 
     if (t.status === "open") {
-        badge = `<span class="badge badge-open">Zapisy otwarte</span>`;
-        meta = [["Start", t.start], ["Wolne", placesLeft(t.slots - count).replace(/^\S+ /, "")], ["Mapy", "Active Duty"]];
+        badge = `<span class="badge badge-open">${tr("tournaments.registrationOpen")}</span>`;
+        meta = [[tx("common.start"), dateTime(t.start)], [tx("tournaments.available"), placesLeft(Math.max(0, t.slots - count))], [tx("tournaments.maps"), tx("tournaments.activePool")]];
         extra = `${slotsGrid(count, t.slots)}<div class="countdown" data-deadline="${esc(t.deadline)}"></div>`;
-        actions = bracketButton("Zapisane drużyny", true) + signupButton;
+        actions = bracketButton(tx("tournaments.registered"), true) + signupButton();
     } else if (t.status === "live") {
         const stage = t.rounds ? t.rounds.findIndex((r) => r.some((m) => m.state !== "done")) : -1;
-        badge = `<span class="badge badge-live"><span class="live-dot"></span>W trakcie</span>`;
+        badge = `<span class="badge badge-live"><span class="live-dot"></span>${tr("status.live")}</span>`;
         meta = [
-            ["Start", t.start],
-            ["Etap", t.rounds ? roundName(stage < 0 ? t.rounds.length - 1 : stage, t.rounds.length) : "Losowanie"],
-            ["Mecze", `${played} / ${matches.length}`],
+            [tx("common.start"), dateTime(t.start)],
+            [tx("tournaments.stage"), t.rounds ? roundName(stage < 0 ? t.rounds.length - 1 : stage, t.rounds.length) : tx("tournaments.draw")],
+            [tx("tournaments.matches"), `${played} / ${matches.length}`],
         ];
         extra = slotsGrid(count, t.slots);
-        actions = bracketButton("Zobacz drabinkę");
+        actions = bracketButton(tx("tournaments.viewBracket"));
     } else {
         const final = t.rounds?.at(-1)?.[0];
-        badge = `<span class="badge badge-done">Zakończony</span>`;
-        meta = [["Odbył się", t.start.split(",")[0]], ["Drużyny", `${count} / ${t.slots}`], ["Finał", final?.state === "done" && !final.bye ? `${final.sa}:${final.sb}` : "-"]];
+        badge = `<span class="badge badge-done">${tr("match.completed")}</span>`;
+        meta = [[tx("tournaments.held"), I18N.formatDate(t.start, { dateStyle: "medium" })], [tx("tournaments.teams"), `${I18N.formatNumber(count)} / ${I18N.formatNumber(t.slots)}`], [tx("tournaments.final"), final?.state === "done" && !final.bye ? `${final.sa}:${final.sb}` : "-"]];
         extra = t.champion
-            ? `<div class="winner">${trophy}<span>Zwycięzca</span><b>${esc(TEAMS[t.champion])}</b></div>`
-            : `<p class="slots-label">Turniej zakończony bez zwycięzcy.</p>`;
-        actions = bracketButton("Zobacz drabinkę", true);
+            ? `<div class="winner">${trophy}<span>${tr("tournaments.winner")}</span><b>${esc(TEAMS[t.champion])}</b></div>`
+            : `<p class="slots-label">${tr("tournaments.noWinner")}</p>`;
+        actions = bracketButton(tx("tournaments.viewBracket"), true);
     }
 
     return `<article class="t-card reveal" data-status="${t.status}" style="--img: url('assets/${CARD_IMAGES[i % CARD_IMAGES.length]}.jpg')">
-        <div class="t-card-img"><span class="t-game">CS2 | 5 na 5</span></div>
+        <div class="t-card-img"><span class="t-game">${tr("tournaments.game")}</span></div>
         <div class="t-card-body">
             <div class="t-card-top">${badge}<span class="format">${esc(t.format)}</span></div>
             <h3>${esc(t.name)}</h3>
@@ -344,7 +380,8 @@ const renderCards = () => {
     tList.innerHTML = TOURNAMENTS.map(tCard).join("");
     tTabs.forEach((tab) => {
         const filter = tab.dataset.filter;
-        $("span", tab).textContent = filter === "all" ? TOURNAMENTS.length : TOURNAMENTS.filter((t) => t.status === filter).length;
+        $(".tab-count", tab).textContent = I18N.formatNumber(filter === "all" ? TOURNAMENTS.length : TOURNAMENTS.filter((t) => t.status === filter).length);
+        tab.setAttribute("aria-pressed", String(filter === tFilter));
     });
     applyTFilter();
     observeReveal(tList);
@@ -354,6 +391,7 @@ const renderCards = () => {
 tTabs.forEach((tab) => tab.addEventListener("click", () => {
     tFilter = tab.dataset.filter;
     tTabs.forEach((t) => t.classList.toggle("active", t === tab));
+    tTabs.forEach((t) => t.setAttribute("aria-pressed", String(t === tab)));
     applyTFilter();
 }));
 
@@ -404,7 +442,7 @@ const applyFilters = () => {
         if (match) shown++;
     });
 
-    $("#ads-count").innerHTML = `Ogłoszenia: <b>${shown}</b>`;
+    I18N.bind($("#ads-count"), "ads.count", { count: I18N.formatNumber(shown) }, true);
     $("#ads-empty").hidden = shown > 0;
 };
 
@@ -441,16 +479,16 @@ let TOURNAMENTS = [
         name: "Puchar Akademika #1",
         status: "live",
         format: "BO1",
-        start: "24.10, 18:00",
+        start: "2026-10-24T18:00:00+02:00",
         slots: 8,
         teams: 4,
         rounds: [
             [
-                { ...done("AKD", "CBS", 13, 8, "Mirage", "24.10, 18:00"), faceit: "1-8f3c2a71-4b6e-4d2a-9c11-2e7f5d9a0b43" },
-                { a: "NCM", b: "SGM", map: "Inferno", time: "24.10, 19:30", state: "pending" },
+                { ...done("AKD", "CBS", 13, 8, "Mirage", "2026-10-24T18:00:00+02:00"), faceit: "1-8f3c2a71-4b6e-4d2a-9c11-2e7f5d9a0b43" },
+                { a: "NCM", b: "SGM", map: "Inferno", time: "2026-10-24T19:30:00+02:00", state: "pending" },
             ],
             [
-                { a: "AKD", b: null, map: "Do wyboru", time: "27.10, 20:00", state: "scheduled" },
+                { a: "AKD", b: null, map: null, time: "2026-10-27T20:00:00+01:00", state: "scheduled" },
             ],
         ],
     },
@@ -459,7 +497,7 @@ let TOURNAMENTS = [
         name: "Sesja Cup",
         status: "open",
         format: "BO1",
-        start: "08.11, 18:00",
+        start: "2026-11-08T18:00:00+01:00",
         slots: 8,
         registered: ["AKD", "PLS", "BYW", "KIK", "SES"],
         deadline: "2026-11-07T18:00:00+01:00",
@@ -469,7 +507,7 @@ let TOURNAMENTS = [
         name: "Nocny Turniej BO3",
         status: "open",
         format: "BO3",
-        start: "15.11, 18:00",
+        start: "2026-11-15T18:00:00+01:00",
         slots: 16,
         registered: ["NCM"],
         deadline: "2026-11-14T18:00:00+01:00",
@@ -479,39 +517,39 @@ let TOURNAMENTS = [
         name: "Turniej Otwarcia",
         status: "done",
         format: "BO1",
-        start: "17.10, 17:00",
+        start: "2026-10-17T17:00:00+02:00",
         slots: 8,
         teams: 8,
         champion: "SGM",
         rounds: [
             [
-                done("SGM", "KIK", 13, 4, "Mirage", "17.10, 17:00"),
-                done("NCM", "BYW", 11, 13, "Nuke", "17.10, 17:00"),
-                done("AKD", "SES", 13, 9, "Ancient", "17.10, 18:15"),
-                done("CBS", "PLS", 16, 14, "Inferno", "17.10, 18:15"),
+                done("SGM", "KIK", 13, 4, "Mirage", "2026-10-17T17:00:00+02:00"),
+                done("NCM", "BYW", 11, 13, "Nuke", "2026-10-17T17:00:00+02:00"),
+                done("AKD", "SES", 13, 9, "Ancient", "2026-10-17T18:15:00+02:00"),
+                done("CBS", "PLS", 16, 14, "Inferno", "2026-10-17T18:15:00+02:00"),
             ],
             [
-                done("SGM", "BYW", 13, 7, "Anubis", "17.10, 19:30"),
-                done("AKD", "CBS", 10, 13, "Dust2", "17.10, 19:30"),
+                done("SGM", "BYW", 13, 7, "Anubis", "2026-10-17T19:30:00+02:00"),
+                done("AKD", "CBS", 10, 13, "Dust2", "2026-10-17T19:30:00+02:00"),
             ],
             [
-                done("SGM", "CBS", 13, 11, "Mirage", "17.10, 21:00"),
+                done("SGM", "CBS", 13, 11, "Mirage", "2026-10-17T21:00:00+02:00"),
             ],
         ],
     },
 ];
 
 const STATUS = {
-    live: { label: "W trakcie", dot: "dot-live", badge: "badge-live" },
-    open: { label: "Zapisy", dot: "dot-open", badge: "badge-open" },
-    done: { label: "Zakończony", dot: "dot-done", badge: "badge-done" },
+    live: { label: "status.live", dot: "dot-live", badge: "badge-live" },
+    open: { label: "status.open", dot: "dot-open", badge: "badge-open" },
+    done: { label: "match.completed", dot: "dot-done", badge: "badge-done" },
 };
 
 const MATCH_STATE = {
-    done: "Zakończony",
-    pending: "Czeka na wynik",
-    scheduled: "Zaplanowany",
-    ready: "Gotowy do gry",
+    done: "match.completed",
+    pending: "match.pending",
+    scheduled: "match.scheduled",
+    ready: "match.ready",
 };
 
 const trophy = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 3h10v3h3v2a5 5 0 0 1-4.6 5A5 5 0 0 1 13 15.9V18h3v3H8v-3h3v-2.1A5 5 0 0 1 8.6 13 5 5 0 0 1 4 8V6h3V3zm-1 5c0 1.2.8 2.3 2 2.7V8H6zm12 0h-2v2.7c1.2-.4 2-1.5 2-2.7z" /></svg>`;
@@ -523,7 +561,7 @@ const bPanel = $("#b-panel");
 let current = TOURNAMENTS[0];
 let selected = null;
 
-const roundName = (i, total) => ["Finał", "Półfinały", "Ćwierćfinały"][total - i - 1] || `Runda ${i + 1}`;
+const roundName = (i, total) => tx(["tournaments.final", "bracket.semifinals", "bracket.quarterfinals"][total - i - 1] || "bracket.round", { number: I18N.formatNumber(i + 1) });
 const winnerOf = (m) => {
     if (m.state !== "done") return null;
     if (m.bye) return m.a || m.b;
@@ -531,24 +569,24 @@ const winnerOf = (m) => {
 };
 
 const teamRow = (code, score, m) => {
-    if (!code) return `<div class="team tbd"><span class="team-tag">?</span><span class="team-name">${m.bye ? "Wolny los" : "Do ustalenia"}</span><b>-</b></div>`;
+    if (!code) return `<div class="team tbd"><span class="team-tag">?</span><span class="team-name">${m.bye ? tx("bracket.bye") : tx("common.toBeConfirmed")}</span><b>-</b></div>`;
     const win = winnerOf(m);
     const cls = win ? (win === code ? "win" : "lose") : "";
-    return `<div class="team ${cls}" data-team="${code}"><span class="team-tag">${code}</span><span class="team-name">${TEAMS[code]}</span><b>${score ?? "-"}</b></div>`;
+    return `<div class="team ${cls}" data-team="${esc(code)}"><span class="team-tag">${esc(code)}</span><span class="team-name">${esc(TEAMS[code])}</span><b>${score ?? "-"}</b></div>`;
 };
 
 const renderTabs = () => {
-    bTabs.innerHTML = TOURNAMENTS.map((t) => `<button type="button" class="tab ${t === current ? "active" : ""}" data-id="${esc(t.id)}"><i class="dot ${STATUS[t.status].dot}"></i>${esc(t.name)}</button>`).join("");
+    bTabs.innerHTML = TOURNAMENTS.map((t) => `<button type="button" class="tab ${t === current ? "active" : ""}" aria-pressed="${t === current}" data-id="${esc(t.id)}"><i class="dot ${STATUS[t.status].dot}"></i>${esc(t.name)}</button>`).join("");
 };
 
 const renderInfo = () => {
     const t = current;
     const count = t.registered ? t.registered.length : t.teams;
     bInfo.innerHTML = `<h3>${esc(t.name)}</h3>
-        <span class="badge ${STATUS[t.status].badge}">${STATUS[t.status].label}</span>
-        <span>Format <b>${t.format}</b></span>
-        <span>Start <b>${t.start}</b></span>
-        <span>Drużyny <b>${count} / ${t.slots}</b></span>`;
+        <span class="badge ${STATUS[t.status].badge}">${tr(STATUS[t.status].label)}</span>
+        <span>${tr("common.format")} <b>${esc(t.format)}</b></span>
+        <span>${tr("common.start")} <b>${dateTime(t.start)}</b></span>
+        <span>${tr("tournaments.teams")} <b>${I18N.formatNumber(count)} / ${I18N.formatNumber(t.slots)}</b></span>`;
 };
 
 const renderBracket = () => {
@@ -557,10 +595,10 @@ const renderBracket = () => {
     if (!t.rounds) {
         const slots = Array.from({ length: t.slots }, (_, i) => {
             const code = t.registered[i];
-            return code ? `<div><span class="team-tag">${code}</span>${TEAMS[code]}</div>` : `<div class="empty-slot">Wolne miejsce</div>`;
+            return code ? `<div><span class="team-tag">${esc(code)}</span>${esc(TEAMS[code])}</div>` : `<div class="empty-slot">${tr("bracket.vacant")}</div>`;
         }).join("");
         bracket.innerHTML = `<div class="signup">
-            <p>Drabinka wylosuje się sama, gdy zamkną się zapisy. Do tego czasu widać tu drużyny, które już są zapisane.</p>
+            <p>${tr("bracket.registrationHelp")}</p>
             <div class="countdown" data-deadline="${t.deadline}"></div>
             <div class="signup-grid">${slots}</div>
         </div>`;
@@ -591,7 +629,7 @@ const renderBracket = () => {
         return `<div class="round"><p class="round-name">${roundName(ri, t.rounds.length)}</p><div class="round-body" style="--rows: ${rows}">${matches}</div></div>`;
     }).join("");
 
-    const champion = t.champion ? `<div class="champion">${trophy}<div><span>Mistrz turnieju</span><b>${TEAMS[t.champion]}</b></div></div>` : "";
+    const champion = t.champion ? `<div class="champion">${trophy}<div><span>${tr("bracket.champion")}</span><b>${esc(TEAMS[t.champion])}</b></div></div>` : "";
     bracket.innerHTML = `<div class="rounds">${rounds}</div>${champion}`;
 };
 
@@ -599,27 +637,27 @@ const panelFor = (m, ri, mi) => {
     const t = current;
     const win = winnerOf(m);
     const team = (code, score) => code
-        ? `<div class="panel-team ${win === code ? "win" : ""}"><span class="team-tag">${code}</span>${TEAMS[code]}<b>${score ?? "-"}</b></div>`
-        : `<div class="panel-team"><span class="team-tag">?</span>${m.bye ? "Wolny los" : "Do ustalenia"}<b>-</b></div>`;
+        ? `<div class="panel-team ${win === code ? "win" : ""}"><span class="team-tag">${esc(code)}</span>${esc(TEAMS[code])}<b>${score ?? "-"}</b></div>`
+        : `<div class="panel-team"><span class="team-tag">?</span>${m.bye ? tx("bracket.bye") : tx("common.toBeConfirmed")}<b>-</b></div>`;
     const texts = {
-        done: "Wynik pobrany automatycznie z FACEIT. Gracze w meczu zgadzali się ze składami zapisanymi na turniej.",
-        pending: "Mecz się toczy albo czeka na link. Po meczu kapitan wkleja link do pokoju z FACEIT i wynik wpisuje się sam.",
-        scheduled: "Czeka na zwycięzcę drugiego meczu z poprzedniej rundy.",
-        ready: "Obie drużyny są znane, można grać. Po meczu kapitan wkleja link z FACEIT.",
+        done: tx("match.completedHelp"),
+        pending: tx("match.pendingHelp"),
+        scheduled: tx("match.scheduledHelp"),
+        ready: tx("match.readyHelp"),
     };
-    const action = m.state === "pending" ? `<button type="button" class="btn btn-full btn-glow" data-paste>Wklej link do tego meczu</button>` : "";
+    const action = m.state === "pending" ? `<button type="button" class="btn btn-full btn-glow" data-paste>${tr("match.paste")}</button>` : "";
 
-    return `<p class="panel-label">${roundName(ri, t.rounds.length)} | mecz ${mi + 1}</p>
-        <h4>${m.a ? TEAMS[m.a] : "?"} vs ${m.b ? TEAMS[m.b] : "?"}</h4>
+    return `<p class="panel-label">${tr("match.heading", { round: roundName(ri, t.rounds.length), number: I18N.formatNumber(mi + 1) })}</p>
+        <h4>${esc(m.a ? TEAMS[m.a] : "?")} ${tr("common.versus")} ${esc(m.b ? TEAMS[m.b] : "?")}</h4>
         <div class="panel-teams">${team(m.a, m.sa)}${team(m.b, m.sb)}</div>
         <ul class="panel-rows">
-            <li><span>Status</span>${MATCH_STATE[m.state]}</li>
-            <li><span>Mapa</span>${m.map}</li>
-            <li><span>Termin</span>${m.time}</li>
-            <li><span>Format</span>${t.format}</li>
-            <li><span>Mecz FACEIT</span>${m.faceit ? `<code>${m.faceit}</code>` : "jeszcze brak"}</li>
+            <li><span>${tr("common.status")}</span>${tr(MATCH_STATE[m.state])}</li>
+            <li><span>${tr("match.map")}</span>${esc(m.map || tx("common.toBeConfirmed"))}</li>
+            <li><span>${tr("match.date")}</span>${dateTime(m.time)}</li>
+            <li><span>${tr("common.format")}</span>${t.format}</li>
+            <li><span>${tr("match.faceit")}</span>${m.faceit ? `<code>${esc(m.faceit)}</code>` : tr("match.noReference")}</li>
         </ul>
-        <p class="panel-text">${m.bye ? "Wolny los: drużyna przechodzi do następnej rundy bez gry." : texts[m.state]}</p>
+        <p class="panel-text">${m.bye ? tx("match.byeHelp") : texts[m.state]}</p>
         ${action}`;
 };
 
@@ -631,21 +669,21 @@ const renderPanel = () => {
 
     if (!t.rounds) {
         const free = t.slots - t.registered.length;
-        bPanel.innerHTML = `<p class="panel-label">${t.status === "open" ? "Zapisy otwarte" : "Losowanie drabinki"}</p>
+        bPanel.innerHTML = `<p class="panel-label">${t.status === "open" ? tx("tournaments.registrationOpen") : tx("bracket.drawing")}</p>
             <h4>${esc(t.name)}</h4>
             <ul class="panel-rows">
-                <li><span>Wolne miejsca</span>${free}</li>
-                <li><span>Format</span>${t.format}</li>
-                <li><span>Start</span>${t.start}</li>
-                <li><span>Skład</span>5 graczy + do 2 rezerwowych</li>
+                <li><span>${tr("tournaments.available")}</span>${I18N.formatNumber(Math.max(0, free))}</li>
+                <li><span>${tr("common.format")}</span>${t.format}</li>
+                <li><span>${tr("common.start")}</span>${dateTime(t.start)}</li>
+                <li><span>${tr("bracket.roster")}</span>${tr("bracket.rosterSize")}</li>
             </ul>
-            <p class="panel-text">Kapitan zapisuje całą drużynę. Strona sprawdza, czy jest 5 graczy i czy nikt nie gra w dwóch ekipach naraz.</p>
-            <button type="button" class="btn btn-full btn-glow" data-modal="register" data-note="Żeby zapisać drużynę, załóż konto albo się zaloguj.">Zapisz drużynę</button>`;
+            <p class="panel-text">${tr("bracket.registrationUnavailable")}</p>
+            ${signupButton()}`;
         return;
     }
 
     if (!selected) {
-        bPanel.innerHTML = `<p class="panel-label">Szczegóły meczu</p><h4>Kliknij mecz</h4><p class="panel-text">Wybierz dowolny mecz w drabince, a tutaj pokaże się wynik, mapa, termin i ID meczu z FACEIT.</p>`;
+        bPanel.innerHTML = `<p class="panel-label">${tr("match.details")}</p><h4>${tr("match.select")}</h4><p class="panel-text">${tr("match.selectHelp")}</p>`;
         return;
     }
 
@@ -695,7 +733,7 @@ const faceitMsg = $("#faceit-msg");
 const faceitSteps = $("#faceit-steps");
 const faceitButton = $("button[type=submit]", faceitForm);
 const faceitPattern = /^https?:\/\/(www\.)?faceit\.com\/[a-z]{2}\/cs2\/room\/(1-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(\/.*)?$/i;
-const exampleLink = "https://www.faceit.com/pl/cs2/room/1-4c7e9b12-3a5d-4f6e-8b21-9d0c3e7a5f18";
+const exampleLink = "https://www.faceit.com/en/cs2/room/1-4c7e9b12-3a5d-4f6e-8b21-9d0c3e7a5f18";
 
 $("#faceit-example").addEventListener("click", () => {
     faceitInput.value = exampleLink;
@@ -708,8 +746,8 @@ bPanel.addEventListener("click", (e) => {
     setTimeout(() => faceitInput.focus(), 500);
 });
 
-const showFaceit = (html, type) => {
-    faceitMsg.innerHTML = html;
+const showFaceit = (key, type, values = {}) => {
+    I18N.bind(faceitMsg, key, values, true);
     faceitMsg.className = `faceit-msg ${type}`;
     if (type === "err") {
         faceitForm.classList.remove("shake");
@@ -737,14 +775,14 @@ faceitForm.addEventListener("submit", async (e) => {
     const value = faceitInput.value.trim();
     const found = value.match(faceitPattern);
 
-    if (!value) return showFaceit("Najpierw wklej link do pokoju meczowego.", "err");
-    if (!found) return showFaceit("To nie wygląda na link do meczu CS2 na FACEIT. Powinien wyglądać tak: <code>faceit.com/pl/cs2/room/1-...</code>", "err");
+    if (!value) return showFaceit("faceit.required", "err");
+    if (!found) return showFaceit("faceit.invalid", "err");
 
     const id = found[2].toLowerCase();
-    if (usedIds().includes(id)) return showFaceit("Ten link był już użyty przy innym meczu. Jeden mecz z FACEIT liczy się tylko raz.", "err");
+    if (usedIds().includes(id)) return showFaceit("faceit.duplicate", "err");
 
     const spot = pendingSpot();
-    if (!spot) return showFaceit("Żaden turniej nie ma teraz meczu, który czeka na wynik. Odśwież stronę, żeby zacząć demo od nowa.", "err");
+    if (!spot) return showFaceit("faceit.noPending", "err");
 
     showFaceit("", "");
     faceitButton.disabled = true;
@@ -754,16 +792,18 @@ faceitForm.addEventListener("submit", async (e) => {
     renderPanel();
 
     const list = [
-        "Link poprawny, ID meczu: ",
-        "Pobieram mecz z FACEIT",
-        "Mecz zakończony, porównuję graczy ze składami",
-        "10 na 10 graczy się zgadza",
-        "Zapisuję wynik i przesuwam drabinkę",
+        "faceit.stepLink",
+        "faceit.stepFetch",
+        "faceit.stepRoster",
+        "faceit.stepPlayers",
+        "faceit.stepAdvance",
     ];
 
     for (const text of list) {
         const li = document.createElement("li");
-        li.textContent = text;
+        const label = document.createElement("span");
+        I18N.bind(label, text);
+        li.append(label);
         if (text === list[0]) {
             const code = document.createElement("code");
             code.textContent = id;
@@ -791,7 +831,7 @@ faceitForm.addEventListener("submit", async (e) => {
     const flashed = $(`.round:nth-child(${spot.r + 2}) [data-team="${winner}"]`, bracket);
     if (flashed) flashed.classList.add("flash");
 
-    showFaceit(`Gotowe. <b>${TEAMS[winner]}</b> wygrywa 13:10${next ? " i idzie dalej" : ""}. To tryb demo, wynik nie zapisuje się w bazie. Prawdziwy przyjdzie z FACEIT API.`, "ok");
+    showFaceit("faceit.result", "ok", { team: TEAMS[winner] });
     faceitButton.disabled = false;
 });
 
@@ -801,12 +841,12 @@ const modalTabs = $$(".modal-tab", modal);
 const forms = $$(".modal-form", modal);
 
 const TITLES = {
-    login: "Witaj z powrotem",
-    register: "Dołącz do CGP",
-    reset: "Zapomniane hasło",
-    newpass: "Nowe hasło",
-    account: "Twoje konto",
-    ad: "Nowe ogłoszenie",
+    login: "auth.titleLogin",
+    register: "auth.titleRegister",
+    reset: "auth.titleReset",
+    newpass: "field.newPassword",
+    account: "auth.titleAccount",
+    ad: "auth.titleAd",
 };
 
 const setModalTab = (name) => {
@@ -814,10 +854,11 @@ const setModalTab = (name) => {
     forms.forEach((form) => {
         form.hidden = form.dataset.form !== name;
         $(".form-msg", form).textContent = "";
+        delete $(".form-msg", form).dataset.i18nHtml;
         $(".form-msg", form).className = "form-msg";
     });
     $(".modal-tabs", modal).hidden = ["account", "newpass", "ad"].includes(name);
-    $("#modal-title").textContent = TITLES[name];
+    I18N.bind($("#modal-title"), TITLES[name]);
 };
 
 $$("[data-tab-go]", modal).forEach((btn) => btn.addEventListener("click", () => {
@@ -834,19 +875,23 @@ const validEmail = (email) => {
 
 let currentUser = null;
 
-const openModal = (name, note) => {
+const openModal = (name, note, values = {}) => {
     if (currentUser && (name === "login" || name === "register")) {
         name = "account";
         note = note || "";
     }
     if (!currentUser && name === "ad") {
         name = "login";
-        note = "Zaloguj się, żeby dodać ogłoszenie. Nie masz konta? Rejestracja zajmuje minutę.";
+        note = "auth.adSignIn";
     }
     if (name === "ad") prepareAdForm();
     setModalTab(name);
     modalNote.hidden = !note;
-    modalNote.textContent = note || "";
+    if (I18N.has(note)) I18N.bind(modalNote, note, values);
+    else {
+        delete modalNote.dataset.i18n;
+        modalNote.textContent = note || "";
+    }
     modal.hidden = false;
     document.body.classList.add("locked");
     setTimeout(() => $(`[data-form="${name}"] input`, modal)?.focus(), 50);
@@ -859,7 +904,10 @@ const closeModal = () => {
 
 document.addEventListener("click", (e) => {
     const trigger = e.target.closest("[data-modal]");
-    if (trigger) openModal(trigger.dataset.modal, trigger.dataset.note);
+    if (trigger) {
+        const noteKey = trigger.dataset.i18nAttr?.split(";").find((pair) => pair.startsWith("data-note:"))?.split(":")[1];
+        openModal(trigger.dataset.modal, noteKey || trigger.dataset.note, JSON.parse(trigger.dataset.i18nParams || "{}"));
+    }
     if (e.target.closest("[data-close]")) closeModal();
 });
 
@@ -871,26 +919,42 @@ modalTabs.forEach((tab) => tab.addEventListener("click", () => setModalTab(tab.d
 
 const formMessage = (form, html, type) => {
     const msg = $(".form-msg", form);
-    msg.innerHTML = html;
+    if (I18N.has(html)) I18N.bind(msg, html, {}, true);
+    else {
+        delete msg.dataset.i18nHtml;
+        msg.innerHTML = html;
+    }
     msg.className = `form-msg ${type}`;
 };
 
 const api = async (path, body, method = body === undefined ? "GET" : "POST") => {
-    const options = { method };
-    if (body !== undefined) Object.assign(options, { headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
-    const res = await fetch(`/api${path}`, options);
+    const options = { method, headers: { "Accept-Language": I18N.locale, "X-CGP-Language": I18N.language, "X-CGP-Region": I18N.region } };
+    if (body !== undefined) {
+        options.headers["content-type"] = "application/json";
+        options.body = JSON.stringify(body);
+    }
+    let res;
+    try {
+        res = await fetch(`/api${path}`, options);
+    } catch {
+        throw Object.assign(new Error(tx("common.serverUnavailable")), { data: { errorKey: "common.serverUnavailable" } });
+    }
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw Object.assign(new Error(data.error || "Serwer nie odpowiada. Spróbuj za chwilę."), { data });
+    if (!res.ok) {
+        if (!data.errorKey) data.errorKey = "common.serverUnavailable";
+        throw Object.assign(new Error(tx(data.errorKey, data.values)), { data });
+    }
     return data;
 };
 
 const backend = location.protocol.startsWith("http")
     ? api("/health").then(() => true).catch(() => false)
     : Promise.resolve(false);
+backend.then((available) => { $("#service-status").hidden = available; });
 
 const send = async (form, path, body, demoText) => {
     if (!(await backend)) {
-        formMessage(form, `Tryb demo: ${demoText}`, "ok");
+        formMessage(form, demoText, "err");
         return null;
     }
     const button = $("button[type=submit]", form);
@@ -898,7 +962,7 @@ const send = async (form, path, body, demoText) => {
     try {
         return await api(path, body);
     } catch (err) {
-        formMessage(form, esc(err.message), "err");
+        formMessage(form, localizedError(err), "err");
         err.handled = true;
         throw err;
     } finally {
@@ -909,12 +973,29 @@ const send = async (form, path, body, demoText) => {
 const loginButton = $(".btn-login");
 const registerButton = $(".auth > .btn[data-modal=register]");
 let userRequest = 0;
+let loadedAds = null;
+let adsRequest = 0;
 
 const setUser = (user, broadcast = false) => {
     userRequest++;
+    const changed = currentUser?.id !== user?.id;
     currentUser = user;
+    if (changed) {
+        adsRequest++;
+        if (loadedAds) {
+            loadedAds = loadedAds.map((ad) => ({ ...ad, mine: ad.author_id === user?.id }));
+            paintAds(loadedAds);
+        }
+    }
     document.body.classList.remove("session-check");
-    $("span", loginButton).textContent = user ? user.nick : "Zaloguj";
+    const label = $("span", loginButton);
+    if (user) {
+        delete label.dataset.i18n;
+        label.textContent = user.nick;
+    } else I18N.bind(label, "action.login");
+    loginButton.dataset.i18nAttr = `aria-label:${user ? "account.open" : "action.login"}`;
+    loginButton.dataset.i18nParams = JSON.stringify(user ? { nick: user.nick } : {});
+    loginButton.setAttribute("aria-label", tx(user ? "account.open" : "action.login", user ? { nick: user.nick } : {}));
     loginButton.dataset.modal = user ? "account" : "login";
     loginButton.classList.toggle("logged", Boolean(user));
     registerButton.hidden = Boolean(user);
@@ -933,14 +1014,16 @@ const setUser = (user, broadcast = false) => {
 
 const toasts = $("#toasts");
 
-const toast = (text, type = "ok") => {
+const toast = (text, type = "ok", values = {}) => {
     const el = document.createElement("div");
     el.className = `toast toast-${type}`;
-    el.textContent = text;
+    if (I18N.has(text)) I18N.bind(el, text, values);
+    else el.textContent = text;
     toasts.append(el);
     setTimeout(() => el.classList.add("out"), 3200);
     setTimeout(() => el.remove(), 3600);
 };
+const toastError = (error) => toast(error.data?.errorKey || error.message, "err", error.data?.values);
 
 const refreshUser = () => {
     const request = ++userRequest;
@@ -973,21 +1056,21 @@ $("#form-login").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const login = form.login.value.trim();
-    if (!login || !form.password.value) return formMessage(form, "Wpisz nick albo e-mail i hasło.", "err");
-    if (login.includes("@") && !validEmail(login)) return formMessage(form, "Ten e-mail wygląda na niepełny.", "err");
+    if (!login || !form.password.value) return formMessage(form, "auth.credentialsRequired", "err");
+    if (login.includes("@") && !validEmail(login)) return formMessage(form, "auth.emailIncomplete", "err");
 
     try {
-        const data = await send(form, "/auth/login", { login, password: form.password.value }, `logowanie działa po wejściu na stronę online. Cześć, <b>${esc(login)}</b>!`);
+        const data = await send(form, "/auth/login", { login, password: form.password.value }, "auth.demoLogin");
         if (!data) return;
         setUser(data.user, true);
-        formMessage(form, `Cześć <b>${esc(data.user.nick)}</b>, jesteś zalogowany.`, "ok");
+        formMessage(form, tr("auth.signedIn", { nick: data.user.nick }), "ok");
         form.reset();
         setTimeout(closeModal, 900);
         refreshUser();
         loadAds().catch(() => {});
     } catch (err) {
         if (err.data?.unverified) {
-            formMessage(form, `${esc(err.message)} <button type="button" class="link-btn" data-resend="${esc(err.data.unverified)}">Wyślij link ponownie</button>`, "err");
+            formMessage(form, `${localizedError(err)} <button type="button" class="link-btn" data-resend="${esc(err.data.unverified)}">${tr("auth.resend")}</button>`, "err");
         }
     }
 });
@@ -996,8 +1079,13 @@ modal.addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-resend]");
     if (!btn) return;
     btn.disabled = true;
-    const data = await api("/auth/resend", { email: btn.dataset.resend }).catch((err) => ({ message: err.message }));
-    formMessage($("#form-login"), esc(data.message), "ok");
+    try {
+        const data = await api("/auth/resend", { email: btn.dataset.resend });
+        formMessage($("#form-login"), localizedResponse(data), "ok");
+    } catch (err) {
+        formMessage($("#form-login"), localizedError(err), "err");
+        btn.disabled = false;
+    }
 });
 
 $("#form-register").addEventListener("submit", async (e) => {
@@ -1007,15 +1095,15 @@ $("#form-register").addEventListener("submit", async (e) => {
     const email = form.email.value.trim();
     const password = form.password.value;
 
-    if (nick.length < 3 || nick.length > 32) return formMessage(form, "Nick musi mieć od 3 do 32 znaków.", "err");
-    if (!/^[\p{L}\p{N}_.-]+$/u.test(nick)) return formMessage(form, "Nick może mieć tylko litery, cyfry oraz znaki _ . -", "err");
-    if (!validEmail(email)) return formMessage(form, "Podaj poprawny e-mail, np. kuba@example.com", "err");
-    if (password.length < 8) return formMessage(form, "Hasło musi mieć co najmniej 8 znaków.", "err");
-    if (password !== form.password2.value) return formMessage(form, "Hasła się różnią.", "err");
+    if (nick.length < 3 || nick.length > 32) return formMessage(form, "auth.nickLength", "err");
+    if (!/^[\p{L}\p{N}_.-]+$/u.test(nick)) return formMessage(form, "auth.nickCharacters", "err");
+    if (!validEmail(email)) return formMessage(form, "auth.emailExample", "err");
+    if (password.length < 8) return formMessage(form, "auth.passwordLength", "err");
+    if (password !== form.password2.value) return formMessage(form, "auth.passwordMismatch", "err");
 
-    const data = await send(form, "/auth/register", { nick, email, password }, `na stronie online na <b>${esc(email)}</b> przyjdzie link aktywacyjny.`).catch(() => null);
+    const data = await send(form, "/auth/register", { nick, email, password }, "auth.demoRegister").catch(() => null);
     if (!data) return;
-    formMessage(form, esc(data.message), "ok");
+    formMessage(form, localizedResponse(data), "ok");
     form.reset();
 });
 
@@ -1023,10 +1111,10 @@ $("#form-reset").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const email = form.email.value.trim();
-    if (!validEmail(email)) return formMessage(form, "Podaj poprawny e-mail.", "err");
+    if (!validEmail(email)) return formMessage(form, "auth.emailInvalid", "err");
 
-    const data = await send(form, "/auth/forgot", { email }, `na stronie online link do zmiany hasła przyjdzie na <b>${esc(email)}</b>.`).catch(() => null);
-    if (data) formMessage(form, esc(data.message), "ok");
+    const data = await send(form, "/auth/forgot", { email }, "auth.demoReset").catch(() => null);
+    if (data) formMessage(form, localizedResponse(data), "ok");
 });
 
 let resetToken = null;
@@ -1035,12 +1123,12 @@ $("#form-newpass").addEventListener("submit", async (e) => {
     e.preventDefault();
     const form = e.target;
     const password = form.password.value;
-    if (password.length < 8) return formMessage(form, "Hasło musi mieć co najmniej 8 znaków.", "err");
-    if (password !== form.password2.value) return formMessage(form, "Hasła się różnią.", "err");
+    if (password.length < 8) return formMessage(form, "auth.passwordLength", "err");
+    if (password !== form.password2.value) return formMessage(form, "auth.passwordMismatch", "err");
 
-    const data = await send(form, "/auth/reset", { token: resetToken, password }, "hasło zmienia się na stronie online.").catch(() => null);
+    const data = await send(form, "/auth/reset", { token: resetToken, password }, "auth.demoNewPassword").catch(() => null);
     if (!data) return;
-    formMessage(form, esc(data.message), "ok");
+    formMessage(form, localizedResponse(data), "ok");
     form.reset();
     setTimeout(() => setModalTab("login"), 1500);
 });
@@ -1050,7 +1138,7 @@ $("#form-account").addEventListener("submit", async (e) => {
     await api("/auth/logout", {}).catch(() => {});
     setUser(null, true);
     closeModal();
-    toast("Wylogowano. Do zobaczenia!");
+    toast("auth.signedOut");
     loadAds().catch(() => {});
 });
 
@@ -1061,9 +1149,7 @@ const prepareAdForm = () => {
     const lfm = $("input[value=lfm]", adForm);
     lfm.disabled = !team;
     if (!team) $("input[value=lfc]", adForm).checked = true;
-    $("#ad-hint").textContent = team
-        ? `Jako kapitan ${team.name} możesz też szukać gracza do składu. Ogłoszenie wisi 7 dni.`
-        : "Szukać gracza do składu może tylko kapitan drużyny. Ogłoszenie wisi 7 dni, naraz możesz mieć 3.";
+    I18N.bind($("#ad-hint"), team ? "ads.captainHint" : "ads.playerHint", team ? { team: team.name } : {});
 };
 
 adForm.addEventListener("submit", async (e) => {
@@ -1076,27 +1162,27 @@ adForm.addEventListener("submit", async (e) => {
         availability: f.availability.value.trim(),
         description: f.description.value.trim(),
     };
-    if (body.description.length < 10) return formMessage(adForm, "Opis musi mieć co najmniej 10 znaków.", "err");
+    if (body.description.length < 10) return formMessage(adForm, "ads.descriptionShort", "err");
 
-    const data = await send(adForm, "/ads", body, "ogłoszenie trafia do bazy na stronie online.").catch(() => null);
+    const data = await send(adForm, "/ads", body, "ads.demoPublish").catch(() => null);
     if (!data) return;
     adForm.reset();
     closeModal();
     await loadAds().catch(() => {});
-    toast("Ogłoszenie wisi na tablicy. Powodzenia w szukaniu!");
+    toast("ads.published");
     $("#lfg").scrollIntoView({ behavior: "smooth" });
 });
 
-const ROLES = { entry: "Entry", support: "Support", awp: "AWP", igl: "IGL", flex: "Flex" };
+const ROLES = { entry: "role.entry", support: "role.support", awp: "role.awp", igl: "role.igl", flex: "role.flex" };
 
 const ago = (date) => {
     const hours = Math.max(1, Math.round((Date.now() - new Date(date)) / 3600000));
-    if (hours < 24) return `${hours} godz. temu`;
+    if (hours < 24) return I18N.formatRelative(-hours, "hour");
     const days = Math.round(hours / 24);
-    return days === 1 ? "1 dzień temu" : `${days} dni temu`;
+    return I18N.formatRelative(-days, "day");
 };
 
-const timeTags = (text) => ["wieczory", "weekendy", "noce"].filter((key) => (text || "").toLowerCase().includes(key.slice(0, 4)));
+const timeTags = (text) => Object.entries({ evenings: /wiecz|evening/i, weekends: /weekend/i, nights: /noce|noc|night/i }).filter(([, pattern]) => pattern.test(text || "")).map(([key]) => key);
 const levelClass = (lvl) => (lvl >= 8 ? "lvl-high" : lvl >= 4 ? "lvl-mid" : "");
 const capital = (text) => (text ? text[0].toUpperCase() + text.slice(1) : "");
 
@@ -1105,36 +1191,43 @@ const adCard = (ad) => {
     const who = team ? ad.team_name : ad.nick;
     return `<article class="ad reveal" data-role="${esc(ad.role)}" data-level="${ad.faceit_level || 1}" data-time="${timeTags(ad.availability).join(" ")}">
         <div class="ad-top">
-            <span class="badge ${team ? "badge-lfm" : "badge-lfc"}">${team ? "Szuka gracza" : "Szuka drużyny"}</span>
+            <span class="badge ${team ? "badge-lfm" : "badge-lfc"}">${team ? tx("ads.lookingPlayer") : tx("ads.lookingTeam")}</span>
             <span class="time">${ago(ad.created_at)}</span>
         </div>
         <div class="ad-who">
             <span class="avatar ${team ? "" : "avatar-player"}">${esc(team ? ad.team_tag : ad.nick[0])}</span>
             <div>
                 <h3>${esc(who)}</h3>
-                <p class="ad-sub">${team ? `kapitan ${esc(ad.captain)}, skład ${ad.members} / 5` : esc(ad.faceit_nick || "bez konta FACEIT")}</p>
+                <p class="ad-sub">${team ? tr("ads.captainRoster", { captain: ad.captain, members: I18N.formatNumber(ad.members) }) : esc(ad.faceit_nick || tx("ads.noFaceit"))}</p>
             </div>
         </div>
         <p class="ad-text">${esc(ad.description)}</p>
         <ul class="chips">
-            <li>${ROLES[ad.role] || "Dowolna rola"}</li>
+            <li>${tr(ROLES[ad.role] || "role.any")}</li>
             ${ad.faceit_level ? `<li><span class="lvl ${levelClass(ad.faceit_level)}">${ad.faceit_level}${team ? "+" : ""}</span>FACEIT</li>` : ""}
             ${ad.availability ? `<li>${esc(capital(ad.availability))}</li>` : ""}
         </ul>
         ${ad.mine
-            ? `<button type="button" class="btn btn-full btn-ghost" data-close-ad="${ad.id}">Zamknij ogłoszenie</button>`
+            ? `<button type="button" class="btn btn-full btn-ghost" data-close-ad="${ad.id}">${tr("ads.close")}</button>`
             : currentUser
-                ? `<button type="button" class="btn btn-full" data-chat="${ad.author_id}">Napisz${team ? ` do ${esc(ad.captain)}` : ""}</button>`
-                : `<button type="button" class="btn btn-full" data-modal="login" data-note="Zaloguj się, żeby napisać do: ${esc(who)}.">Napisz</button>`}
+                ? `<button type="button" class="btn btn-full" data-chat="${ad.author_id}">${team ? tr("ads.messageCaptain", { captain: ad.captain }) : tr("action.message")}</button>`
+                : `<button type="button" class="btn btn-full" data-modal="login" data-note="${esc(tx("ads.contactSignIn", { name: who }))}" data-i18n-attr="data-note:ads.contactSignIn" data-i18n-params="${esc(JSON.stringify({ name: who }))}">${tr("action.message")}</button>`}
     </article>`;
 };
 
-const loadAds = async () => {
-    const { ads: list } = await api("/ads");
+const paintAds = (list) => {
     $("#ads").innerHTML = list.map(adCard).join("");
     ads = $$(".ad");
     observeReveal($("#ads"));
     applyFilters();
+};
+const loadAds = async () => {
+    const userId = currentUser?.id;
+    const request = ++adsRequest;
+    const { ads: list } = await api("/ads");
+    if (request !== adsRequest || userId !== currentUser?.id) return list;
+    loadedAds = list;
+    paintAds(list);
     return list;
 };
 
@@ -1143,10 +1236,10 @@ $("#ads").addEventListener("click", async (e) => {
     if (!btn) return;
     if (!btn.classList.contains("confirm")) {
         btn.classList.add("confirm");
-        btn.textContent = "Kliknij jeszcze raz, żeby zamknąć";
+        I18N.bind(btn, "ads.confirmClose");
         setTimeout(() => {
             btn.classList.remove("confirm");
-            btn.textContent = "Zamknij ogłoszenie";
+            I18N.bind(btn, "ads.close");
         }, 3000);
         return;
     }
@@ -1154,17 +1247,14 @@ $("#ads").addEventListener("click", async (e) => {
     try {
         await api(`/ads/${btn.dataset.closeAd}`, undefined, "DELETE");
         await loadAds();
-        toast("Ogłoszenie zamknięte, znika z listy.");
+        toast("ads.closed");
     } catch (err) {
-        toast(err.message, "err");
+        toastError(err);
         btn.disabled = false;
     }
 });
 
-const matchOrder = (time) => {
-    const [d, m, h, min] = String(time || "").match(/\d+/g)?.map(Number) || [];
-    return (m || 0) * 1e6 + (d || 0) * 1e4 + (h || 0) * 100 + (min || 0);
-};
+const matchOrder = (time) => Date.parse(time) || 0;
 
 const finishedMatches = () => TOURNAMENTS
     .flatMap((t) => (t.rounds || []).flat().map((m) => ({ ...m, tournament: t.name })))
@@ -1188,21 +1278,21 @@ const renderRanking = () => {
             row.won += own;
             row.lost += opp;
             row.wins += own > opp ? 1 : 0;
-            row.form.push(own > opp ? "W" : "P");
+            row.form.push(own > opp ? "win" : "loss");
         });
     });
 
-    const rows = Object.values(table).sort((a, b) => b.wins - a.wins || (b.won - b.lost) - (a.won - a.lost) || b.played - a.played || TEAMS[a.tag].localeCompare(TEAMS[b.tag]));
+    const rows = Object.values(table).sort((a, b) => b.wins - a.wins || (b.won - b.lost) - (a.won - a.lost) || b.played - a.played || TEAMS[a.tag].localeCompare(TEAMS[b.tag], I18N.locale));
     $("#r-body").innerHTML = rows.map((r, i) => {
         const diff = r.won - r.lost;
         return `<tr class="${i < 3 && r.played ? `r-top r-top-${i + 1}` : ""}" style="--n: ${i}">
-            <td class="r-pos">${i + 1}</td>
+            <td class="r-pos">${I18N.formatNumber(i + 1)}</td>
             <td><span class="r-team"><span class="avatar">${esc(r.tag)}</span><b>${esc(TEAMS[r.tag])}</b></span></td>
-            <td>${r.played}</td>
-            <td class="r-w">${r.wins}</td>
-            <td>${r.played - r.wins}</td>
+            <td>${I18N.formatNumber(r.played)}</td>
+            <td class="r-w">${I18N.formatNumber(r.wins)}</td>
+            <td>${I18N.formatNumber(r.played - r.wins)}</td>
             <td class="${diff > 0 ? "plus" : diff < 0 ? "minus" : ""}">${r.won}:${r.lost} <small>${diff > 0 ? "+" : ""}${diff}</small></td>
-            <td><span class="r-form">${r.form.slice(-5).map((f) => `<i class="f-${f}">${f}</i>`).join("") || "<em>brak meczów</em>"}</span></td>
+            <td><span class="r-form">${r.form.slice(-5).map((f) => `<i class="f-${f}" title="${esc(tx(f === "win" ? "ranking.win" : "ranking.loss"))}" data-i18n-attr="title:${f === "win" ? "ranking.win" : "ranking.loss"}">${tr(f === "win" ? "ranking.winLetter" : "ranking.lossLetter")}</i>`).join("") || `<em>${tr("ranking.noMatches")}</em>`}</span></td>
             <td class="r-titles ${r.titles ? "won" : ""}">${r.titles ? `${trophy}${r.titles}` : "0"}</td>
         </tr>`;
     }).join("");
@@ -1210,59 +1300,68 @@ const renderRanking = () => {
     const top = Math.max(1, ...Object.values(maps));
     $("#r-maps").innerHTML = Object.entries(maps).sort((a, b) => b[1] - a[1]).map(([map, n]) => `<li>
         <span>${esc(map)}</span><b>${n}</b><i style="--w: ${(n / top) * 100}%"></i>
-    </li>`).join("") || "<li>Jeszcze nic nie zagrano.</li>";
+    </li>`).join("") || `<li>${tr("ranking.noMaps")}</li>`;
 
     const facts = [];
     if (matches.length) {
         const blowout = matches.reduce((a, b) => (Math.abs(b.sa - b.sb) > Math.abs(a.sa - a.sb) ? b : a));
-        facts.push(`Najwyższa wygrana: <b>${esc(TEAMS[blowout.a])}</b> ${blowout.sa}:${blowout.sb} <b>${esc(TEAMS[blowout.b])}</b> na ${esc(blowout.map)}`);
+        facts.push(tr("ranking.largestWin", { teamA: TEAMS[blowout.a], teamB: TEAMS[blowout.b], scoreA: blowout.sa, scoreB: blowout.sb, map: blowout.map }));
         const overtime = matches.filter((m) => Math.max(m.sa, m.sb) > 13);
-        if (overtime.length) facts.push(`Dogrywki: ${overtime.map((m) => `<b>${esc(m.a)}</b> ${m.sa}:${m.sb} <b>${esc(m.b)}</b>`).join(", ")}`);
+        if (overtime.length) facts.push(tr("ranking.overtime", { matches: I18N.formatList(overtime.map((m) => `${m.a} ${m.sa}:${m.sb} ${m.b}`)) }));
         const rounds = matches.reduce((sum, m) => sum + m.sa + m.sb, 0);
-        facts.push(`Rozegrane mecze: <b>${matches.length}</b>, rundy: <b>${rounds}</b>, średnio <b>${(rounds / matches.length).toFixed(1)}</b> na mecz`);
-        const streak = (form) => Math.max(...form.join("").split("P").map((s) => s.length));
+        facts.push(tr("ranking.totals", { matches: I18N.formatNumber(matches.length), rounds: I18N.formatNumber(rounds), average: I18N.formatNumber(rounds / matches.length, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) }));
+        const streak = (form) => {
+            let run = 0;
+            let longest = 0;
+            form.forEach((result) => {
+                run = result === "win" ? run + 1 : 0;
+                longest = Math.max(longest, run);
+            });
+            return longest;
+        };
         const hot = rows.filter((r) => r.wins).sort((a, b) => streak(b.form) - streak(a.form))[0];
-        if (hot) facts.push(`Najdłuższa seria wygranych: <b>${esc(TEAMS[hot.tag])}</b>, ${streak(hot.form)} z rzędu`);
+        if (hot) facts.push(tr("ranking.streak", { team: TEAMS[hot.tag], count: I18N.formatNumber(streak(hot.form)) }));
     }
-    $("#r-facts").innerHTML = facts.map((f) => `<li>${f}</li>`).join("") || "<li>Ciekawostki pojawią się po pierwszych meczach.</li>";
+    $("#r-facts").innerHTML = facts.map((f) => `<li>${f}</li>`).join("") || `<li>${tr("ranking.noFacts")}</li>`;
 };
 
-const placesLeft = (n) => {
-    if (n === 1) return "zostało 1 miejsce";
-    if ([2, 3, 4].includes(n % 10) && ![12, 13, 14].includes(n % 100)) return `zostały ${n} miejsca`;
-    return `zostało ${n} miejsc`;
-};
+const placesLeft = (n) => tx("tournaments.places", { count: Math.max(0, n) });
 
 let tickerAds = [];
 
 const renderTicker = (adList = tickerAds) => {
     tickerAds = adList;
-    const team = (tag) => `<b>${esc(TEAMS[tag] || tag)}</b>`;
+    const team = (tag) => TEAMS[tag] || tag;
     const items = [];
     TOURNAMENTS.forEach((t) => {
         if (t.status === "live") (t.rounds || []).flat().forEach((m) => {
-            if (m.state === "done") items.push(`${team(m.a)} ${m.sa}:${m.sb} ${team(m.b)}`);
-            else if (m.a && m.b && m.state === "pending") items.push(`${team(m.a)} vs ${team(m.b)} czeka na wynik`);
+            if (m.state === "done") items.push(`<b>${esc(team(m.a))}</b> ${m.sa}:${m.sb} <b>${esc(team(m.b))}</b>`);
+            else if (m.a && m.b && m.state === "pending") items.push(tr("ticker.matchPending", { teamA: team(m.a), teamB: team(m.b) }));
         });
         if (t.status === "open") items.push(`<b>${esc(t.name)}</b> ${placesLeft(t.slots - (t.registered || []).length)}`);
-        if (t.status === "done" && t.champion) items.push(`${team(t.champion)} wygrywa ${esc(t.name)}`);
+        if (t.status === "done" && t.champion) items.push(tr("ticker.champion", { team: team(t.champion), tournament: t.name }));
     });
     adList.filter((ad) => ad.type === "lfm").slice(0, 2).forEach((ad) => {
-        items.push(`<b>${esc(ad.team_name)}</b> szuka ${esc(ROLES[ad.role] || "gracza").toLowerCase()}, FACEIT ${ad.faceit_level}+`);
+        items.push(tr("ticker.recruiting", { team: ad.team_name, role: tx(ROLES[ad.role] || "role.any"), level: I18N.formatNumber(ad.faceit_level) }));
     });
     if (!items.length) {
         $("#ticker-track").innerHTML = "";
         return;
     }
-    const group = (hidden) => `<div class="ticker-group"${hidden ? ' aria-hidden="true"' : ""}><span class="ticker-live">Na żywo</span>${items.map((i) => `<span>${i}</span><i></i>`).join("")}</div>`;
+    const group = (hidden) => `<div class="ticker-group"${hidden ? ' aria-hidden="true"' : ""}><span class="ticker-live">${tr("ticker.label")}</span>${items.map((i) => `<span>${i}</span><i></i>`).join("")}</div>`;
     $("#ticker-track").innerHTML = group(false) + group(true);
 };
 
 renderRanking();
 renderCards();
+renderTicker();
 
 const applyTournaments = (data) => {
-    if (!data.tournaments.length) return;
+    if (!data.tournaments.length) {
+        I18N.bind($("#service-status"), "common.sampleTournaments");
+        $("#service-status").hidden = false;
+        return;
+    }
     const keep = current.name;
     TEAMS = data.teams;
     TOURNAMENTS = data.tournaments;
@@ -1270,6 +1369,7 @@ const applyTournaments = (data) => {
     renderRanking();
     renderCards();
     renderTicker();
+    document.dispatchEvent(new CustomEvent("cgp:tournaments"));
 };
 
 const loadTournaments = () => api("/tournaments").then(applyTournaments);
@@ -1286,7 +1386,10 @@ let noticeItem = null;
 const showNotice = (item) => {
     if (item !== undefined) noticeItem = item;
     const canHide = Boolean(currentUser);
-    const dismissed = canHide && noticeItem && localStorage.getItem("cgp-notice") === String(noticeItem.id);
+    let dismissed = false;
+    if (canHide && noticeItem) {
+        try { dismissed = localStorage.getItem("cgp-notice") === String(noticeItem.id); } catch {}
+    }
     const hide = !noticeItem || dismissed;
     notice.hidden = hide;
     $("#notice-x").hidden = hide || !canHide;
@@ -1301,7 +1404,7 @@ const loadNotice = () => api("/announcement").then((data) => showNotice(data.ann
 
 $("#notice-x").addEventListener("click", () => {
     if (!currentUser || !noticeItem) return;
-    localStorage.setItem("cgp-notice", noticeItem.id);
+    try { localStorage.setItem("cgp-notice", noticeItem.id); } catch {}
     notice.classList.add("out");
     setTimeout(() => {
         notice.classList.remove("out");
@@ -1330,10 +1433,10 @@ const loadData = async () => {
         openModal("newpass");
     } else if (params.get("verified") === "1" && currentUser) {
         openModal("account");
-        formMessage($("#form-account"), "Mail potwierdzony, konto jest aktywne. Witaj w CGP!", "ok");
+        formMessage($("#form-account"), "auth.activated", "ok");
     } else if (params.get("verified") === "0") {
         openModal("login");
-        formMessage($("#form-login"), "Ten link aktywacyjny wygasł albo był już użyty. Zaloguj się, a wyślemy nowy.", "err");
+        formMessage($("#form-login"), "auth.activationExpired", "err");
     }
     if (params.size) history.replaceState(null, "", location.pathname + location.hash);
 };
@@ -1343,32 +1446,33 @@ loadData();
 const chicken = $("#chicken");
 const chickenSay = $("#chicken-say");
 const chickenScore = $("#chicken-score");
-const CLUCKS = ["ko ko?", "rush B?", "eco runda?", "nie strzelaj", "ko ko ko", "gdzie bomba?", "gg ez"];
+const CLUCKS = ["chicken.idle"];
 const CHICKEN_LINES = {
-    1: "Kurczak padł. Valve tego nie zapomni.",
-    3: "Trzy kurczaki. To już nawyk.",
-    5: "Pięć kurczaków. Ktoś tu trenuje aim na niewinnych.",
-    10: "Dziesięć kurczaków. Legenda Inferno.",
-    25: "25 kurczaków. Odejdź od klawiatury.",
+    1: "chicken.lineOne",
+    3: "chicken.lineThree",
+    5: "chicken.lineFive",
+    10: "chicken.lineTen",
+    25: "chicken.lineTwentyFive",
 };
-let chickens = Number(localStorage.getItem("cgp-chickens")) || 0;
+let chickens = 0;
+try { chickens = Number(localStorage.getItem("cgp-chickens")) || 0; } catch {}
 
 const showChickens = () => {
     chickenScore.hidden = !chickens;
-    chickenScore.textContent = `Kurczaki: ${chickens}`;
+    I18N.bind(chickenScore, "chicken.score", { count: I18N.formatNumber(chickens) });
 };
 
 showChickens();
 
 setInterval(() => {
     if (chicken.classList.contains("dead") || chicken.matches(":hover") || Math.random() < 0.5) return;
-    chickenSay.textContent = CLUCKS[Math.floor(Math.random() * CLUCKS.length)];
+    I18N.bind(chickenSay, CLUCKS[Math.floor(Math.random() * CLUCKS.length)]);
     chicken.classList.add("talk");
     setTimeout(() => chicken.classList.remove("talk"), 1800);
 }, 6000);
 
 chicken.addEventListener("mouseenter", () => {
-    chickenSay.textContent = "ko ko?";
+    I18N.bind(chickenSay, "chicken.idle");
 });
 
 chicken.addEventListener("click", () => {
@@ -1393,7 +1497,7 @@ chicken.addEventListener("click", () => {
 
     const plus = document.createElement("span");
     plus.className = "chicken-plus";
-    plus.textContent = "+1 kurczak";
+    I18N.bind(plus, "chicken.point");
     plus.style.left = `${x}px`;
     plus.style.top = `${y - 20}px`;
     document.body.append(plus);
@@ -1402,7 +1506,7 @@ chicken.addEventListener("click", () => {
     chicken.classList.remove("talk");
     chicken.classList.add("dead");
     chickens++;
-    localStorage.setItem("cgp-chickens", chickens);
+    try { localStorage.setItem("cgp-chickens", chickens); } catch {}
     showChickens();
     chickenScore.classList.remove("bump");
     void chickenScore.offsetWidth;
@@ -1415,4 +1519,23 @@ chicken.addEventListener("click", () => {
         chicken.style.animation = "";
         chicken.classList.remove("dead");
     }, 6000);
+});
+
+document.addEventListener("cgp:languagechange", () => {
+    $$("[data-scramble]").forEach((element) => { element.dataset.text = tx(element.dataset.i18n); });
+    const activeStep = stepButtons.findIndex((button) => button.classList.contains("active"));
+    I18N.bind(screenPath, ["how.path.register", "how.path.recruitment", "how.path.chat", "how.path.results"][Math.max(0, activeStep)]);
+    renderTabs();
+    renderInfo();
+    renderBracket();
+    renderPanel();
+    renderCards();
+    renderRanking();
+    renderTicker();
+    if (loadedAds) paintAds(loadedAds);
+    else applyFilters();
+    if (!adForm.hidden) prepareAdForm();
+    showChickens();
+    moveInk();
+    setNoticeHeight();
 });

@@ -305,7 +305,7 @@ h1, h2, h3, h4 {
     from { opacity: 0; transform: translateY(-12px); }
 }
 
-.nav a span {
+.nav a > span:first-child {
     color: #7d8a97;
     font-size: 11px;
     transition: color 0.2s;
@@ -350,8 +350,8 @@ h1, h2, h3, h4 {
     color: var(--text);
 }
 
-.nav a.active span,
-.nav a:hover span {
+.nav a.active > span:first-child,
+.nav a:hover > span:first-child {
     color: var(--accent);
 }
 
@@ -1655,7 +1655,7 @@ h1, h2, h3, h4 {
     transition: color 0.2s, border-color 0.2s, background 0.2s;
 }
 
-.tab span {
+.tab .tab-count {
     min-width: 22px;
     padding: 0 6px;
     background: var(--line);
@@ -1675,7 +1675,7 @@ h1, h2, h3, h4 {
     border-color: var(--accent);
 }
 
-.tab.active span {
+.tab.active .tab-count {
     background: rgba(0, 0, 0, 0.25);
 }
 
@@ -3275,8 +3275,8 @@ textarea {
     color: #0b131b;
 }
 
-.r-form .f-W { background: var(--green); }
-.r-form .f-P { background: var(--accent); color: #fff; }
+.r-form .f-win { background: var(--green); }
+.r-form .f-loss { background: var(--accent); color: #fff; }
 
 .r-form em {
     color: var(--muted);
