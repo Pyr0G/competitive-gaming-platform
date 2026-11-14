@@ -47,7 +47,7 @@ app.use((err, req, res, next) => {
 const created = await initDatabase();
 if (created) console.log("Baza była pusta, założyłem tabele i wrzuciłem dane przykładowe.");
 
-app.listen(config.port, () => {
+app.listen({ port: config.port, host: config.production ? undefined : "127.0.0.1" }, () => {
     console.log(`CGP działa na ${config.appUrl}`);
     if (!config.brevoKey) console.log("Brak BREVO_API_KEY, maile lądują w logach zamiast w skrzynce.");
 });
