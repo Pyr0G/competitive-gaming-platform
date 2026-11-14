@@ -1,3 +1,4 @@
+import { failure, translateRequest } from "./i18n.js";
 import path from "node:path";
 import express from "express";
 import { config } from "./config.js";
@@ -12,6 +13,13 @@ const app = express();
 
 app.set("trust proxy", 1);
 app.disable("x-powered-by");
+app.use("/api", (req, res, next) => {
+    res.set("Content-Language", translateRequest(req).language);
+    res.vary("Accept-Language");
+    res.vary("X-CGP-Language");
+    res.vary("X-CGP-Region");
+    next();
+});
 app.use("/api", apiRateLimit);
 app.use(express.json({ limit: "20kb" }));
 app.use("/api", readSession);
@@ -21,13 +29,19 @@ app.use("/api/chat", chat);
 app.use("/api/admin", admin);
 app.use("/api", api);
 
-app.use("/api", (req, res) => res.status(404).json({ error: "Nie ma takiego adresu w API." }));
+app.use("/api", (req, res) => res.status(404).json(failure(req, "error.apiMissing")));
 
-app.use(express.static(path.join(import.meta.dirname, "..", "frontend"), { maxAge: config.production ? "1h" : 0 }));
+app.use(express.static(path.join(import.meta.dirname, "..", "frontend"), {
+    maxAge: config.production ? "1h" : 0,
+    setHeaders: (res, file) => {
+        if (/\.(?:html|js|css)$/.test(file)) res.set("Cache-Control", "no-cache");
+    },
+}));
 
 app.use((err, req, res, next) => {
     console.error(err);
-    res.status(500).json({ error: "Coś poszło nie tak po stronie serwera." });
+    const status = err.type === "entity.too.large" ? 413 : err.type === "entity.parse.failed" ? 400 : 500;
+    res.status(status).json(failure(req, status === 413 ? "error.bodyTooLarge" : status === 400 ? "error.badRequest" : "error.server"));
 });
 
 const created = await initDatabase();

@@ -1,3 +1,4 @@
+import { createClientTranslations } from "./client-test-support.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -22,6 +23,7 @@ class Element {
         handlers.push(handler);
         this.listeners.set(type, handlers);
     }
+    setAttribute() {}
 
     dispatchEvent(event) {
         for (const handler of this.listeners.get(event.type) || []) handler(event);
@@ -42,6 +44,7 @@ const createClient = (search = "") => {
     const tournaments = new Promise((resolve) => { releaseTournaments = resolve; });
     const state = { user: null, announcement: { id: 7, content: "Ogłoszenie testowe" } };
     const context = vm.createContext({
+        ...createClientTranslations(),
         $, document, window: new Element(), modal: new Element(), currentUser: null,
         CustomEvent: class { constructor(type) { this.type = type; } },
         localStorage: {

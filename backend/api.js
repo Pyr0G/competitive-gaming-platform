@@ -1,3 +1,4 @@
+import { failure } from "./i18n.js";
 import { Router } from "express";
 import { query } from "./db.js";
 import { limit, requireUser } from "./auth.js";
@@ -7,15 +8,7 @@ export const api = Router();
 const STATUS = { in_progress: "live", registration: "open", finished: "done", cancelled: "done" };
 const MATCH_STATE = { finished: "done", awaiting_result: "pending", disputed: "pending", ready: "ready", scheduled: "scheduled" };
 
-const when = new Intl.DateTimeFormat("pl-PL", {
-    timeZone: "Europe/Warsaw",
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-});
-
-const format = (date) => (date ? when.format(date) : "do ustalenia");
+const timestamp = (date) => date ? new Date(date).toISOString() : null;
 
 api.get("/health", async (req, res) => {
     await query("SELECT 1");
@@ -53,13 +46,13 @@ api.get("/tournaments", async (req, res) => {
             name: t.name,
             status: STATUS[t.status],
             format: t.format.toUpperCase(),
-            start: format(t.starts_at),
+            start: timestamp(t.starts_at),
             slots: t.max_teams,
             teams: registered.length,
         };
 
         if (!own.length) {
-            return { ...item, registered, deadline: t.registration_closes_at.toISOString() };
+            return { ...item, registered, deadline: timestamp(t.registration_closes_at) };
         }
 
         const roundCount = Math.max(...own.map((m) => m.round));
@@ -70,8 +63,8 @@ api.get("/tournaments", async (req, res) => {
                 b: m.b,
                 sa: m.team1_score,
                 sb: m.team2_score,
-                map: m.map || "Do wyboru",
-                time: format(m.scheduled_at),
+                map: m.map || null,
+                time: timestamp(m.scheduled_at),
                 state: MATCH_STATE[m.status],
                 faceit: m.faceit_match_id,
                 bye: m.status === "finished" && (!m.a || !m.b),
@@ -110,14 +103,14 @@ api.post("/ads", requireUser, limit("ads", 10, 30), async (req, res) => {
     const availability = String(req.body.availability || "").trim().slice(0, 80) || null;
     const description = String(req.body.description || "").trim();
 
-    if (!role) return res.status(400).json({ error: "Wybierz rolę." });
-    if (!Number.isInteger(level) || level < 1 || level > 10) return res.status(400).json({ error: "Poziom FACEIT musi być od 1 do 10." });
-    if (description.length < 10 || description.length > 500) return res.status(400).json({ error: "Opis musi mieć od 10 do 500 znaków." });
+    if (!role) return res.status(400).json(failure(req, "error.roleRequired"));
+    if (!Number.isInteger(level) || level < 1 || level > 10) return res.status(400).json(failure(req, "error.levelInvalid"));
+    if (description.length < 10 || description.length > 500) return res.status(400).json(failure(req, "error.descriptionLength"));
 
     let teamId = null;
     if (type === "lfm") {
         const { rows } = await query("SELECT id FROM teams WHERE captain_id = $1 LIMIT 1", [req.userId]);
-        if (!rows.length) return res.status(400).json({ error: "Szukać gracza do składu może tylko kapitan drużyny." });
+        if (!rows.length) return res.status(400).json(failure(req, "error.captainRequired"));
         teamId = rows[0].id;
     }
 
@@ -125,7 +118,7 @@ api.post("/ads", requireUser, limit("ads", 10, 30), async (req, res) => {
         "SELECT COUNT(*)::int AS n FROM advertisements WHERE author_id = $1 AND is_closed = FALSE AND expires_at > NOW()",
         [req.userId],
     );
-    if (active[0].n >= 3) return res.status(400).json({ error: "Możesz mieć naraz maksymalnie 3 aktywne ogłoszenia." });
+    if (active[0].n >= 3) return res.status(400).json(failure(req, "error.adLimit"));
 
     const { rows } = await query(
         `INSERT INTO advertisements (author_id, team_id, type, faceit_level, role, availability, description)
@@ -140,6 +133,6 @@ api.delete("/ads/:id", requireUser, async (req, res) => {
         "UPDATE advertisements SET is_closed = TRUE WHERE id = $1 AND author_id = $2 AND is_closed = FALSE",
         [Number(req.params.id) || 0, req.userId],
     );
-    if (!rowCount) return res.status(404).json({ error: "Możesz zamknąć tylko swoje ogłoszenie." });
+    if (!rowCount) return res.status(404).json(failure(req, "error.adOwner"));
     res.json({ ok: true });
 });

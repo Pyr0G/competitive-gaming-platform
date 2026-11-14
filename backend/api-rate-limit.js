@@ -1,4 +1,5 @@
 import { rateLimit } from "express-rate-limit";
+import { failure } from "./i18n.js";
 
 export const createApiRateLimit = ({ maxEntries = 10000, now = Date.now, limit = 300, windowMs = 60000 } = {}) => {
     const hits = new Map();
@@ -34,7 +35,7 @@ export const createApiRateLimit = ({ maxEntries = 10000, now = Date.now, limit =
         store,
         standardHeaders: "draft-8",
         legacyHeaders: false,
-        message: { error: "Za dużo prób. Odczekaj chwilę i spróbuj znowu." },
+        message: (req) => failure(req, "error.rateLimited"),
     });
 };
 

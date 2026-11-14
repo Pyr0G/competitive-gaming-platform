@@ -1,3 +1,4 @@
+import { createClientTranslations } from "./client-test-support.js";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
@@ -8,6 +9,7 @@ const faceitSource = source.slice(source.indexOf("const faceitForm ="), source.i
 const id = "1-4c7e9b12-3a5d-4f6e-8b21-9d0c3e7a5f18";
 
 class Element {
+    dataset = {};
     children = [];
     textContent = "";
     listeners = new Map();
@@ -30,6 +32,7 @@ const client = () => {
     };
     const tournament = { id: 1, rounds: [[{ a: "a", b: "b", state: "pending" }]] };
     vm.runInNewContext(faceitSource, {
+        ...createClientTranslations(),
         $, document: { createElement: (tag) => new Element(tag) },
         bPanel: new Element(), bracket: new Element(),
         TOURNAMENTS: [tournament], TEAMS: { a: "Pierogi", b: "Smoki" }, current: tournament,
@@ -46,10 +49,10 @@ test("FACEIT demo renders the ID as a code node and still completes the result",
     await c.submit();
     const steps = c.$("#faceit-steps").children;
     assert.equal(steps.length, 5);
-    assert.equal(steps[0].textContent, "Link poprawny, ID meczu: ");
-    assert.equal(steps[0].children.length, 1);
-    assert.equal(steps[0].children[0].tag, "code");
-    assert.equal(steps[0].children[0].textContent, id);
+    assert.equal(steps[0].children[0].textContent, "Link accepted. Match ID: ");
+    assert.equal(steps[0].children.length, 2);
+    assert.equal(steps[0].children[1].tag, "code");
+    assert.equal(steps[0].children[1].textContent, id);
     assert.equal(c.tournament.rounds[0][0].faceit, id);
     assert.equal(c.tournament.rounds[0][0].state, "done");
     assert.equal(c.$("button[type=submit]").disabled, false);
@@ -62,5 +65,5 @@ test("FACEIT rejects markup in the match ID without changing the bracket", async
     await c.submit();
     assert.equal(c.$("#faceit-steps").children.length, 0);
     assert.equal(c.tournament.rounds[0][0].state, "pending");
-    assert.match(c.$("#faceit-msg").html, /To nie wygląda/);
+    assert.match(c.$("#faceit-msg").html, /Enter a valid CS2 match link/);
 });

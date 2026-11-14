@@ -16,11 +16,16 @@ const vetoMaps = $("#veto-maps");
 const vetoTurn = $("#veto-turn");
 const mapName = (id) => POOL.find(([m]) => m === id)[1];
 
-const teamOptions = Object.entries(TEAMS).map(([tag, name]) => `<option value="${tag}">${esc(name)}</option>`).join("");
-vetoA.innerHTML = teamOptions;
-vetoB.innerHTML = teamOptions;
-vetoA.value = "AKD";
-vetoB.value = "SGM";
+const refreshVetoTeams = () => {
+    const before = [vetoA.value, vetoB.value];
+    const tags = Object.keys(TEAMS);
+    const options = Object.entries(TEAMS).map(([tag, name]) => `<option value="${esc(tag)}">${esc(name)}</option>`).join("");
+    [vetoA, vetoB].forEach((select, i) => {
+        select.innerHTML = options;
+        select.value = tags.includes(before[i]) ? before[i] : tags[i] || tags[0] || "";
+    });
+};
+refreshVetoTeams();
 
 vetoMaps.innerHTML = POOL.map(([id, name, color], i) => `<button type="button" class="veto-map" data-veto="${id}" style="--m: ${color}; --n: ${i}">
     <span class="vm-name">${name}</span>
@@ -39,22 +44,21 @@ const renderVeto = () => {
         const id = btn.dataset.veto;
         const s = veto.steps.find((x) => x.map === id);
         const state = s ? s.action : id === decider ? "decider" : "";
-        if (btn.dataset.state === state) return;
         btn.dataset.state = state;
         btn.className = `veto-map ${state === "ban" ? "banned" : state === "pick" ? "picked" : state}`;
-        $(".vm-state", btn).textContent = s ? `${s.action === "ban" ? "Ban" : "Pick"} ${s.team}` : state ? "Decydująca" : "";
+        $(".vm-state", btn).textContent = s ? tx(s.action === "ban" ? "veto.bannedBy" : "veto.pickedBy", { team: s.team }) : state ? tx("veto.decider") : "";
     });
     $$(".veto-map", vetoMaps).forEach((btn) => { btn.disabled = Boolean(btn.dataset.state || finished); });
 
-    $("#veto-log").innerHTML = veto.steps.map((s) => `<li><b>${esc(s.team)}</b> ${s.action === "ban" ? "banuje" : "wybiera"} ${mapName(s.map)}</li>`).join("")
-        + (decider ? `<li class="veto-decider">Decydująca: <b>${mapName(decider)}</b></li>` : "");
+    $("#veto-log").innerHTML = veto.steps.map((s) => `<li>${tr(s.action === "ban" ? "veto.logBan" : "veto.logPick", { team: s.team, map: mapName(s.map) })}</li>`).join("")
+        + (decider ? `<li class="veto-decider">${tr("veto.logDecider", { map: mapName(decider) })}</li>` : "");
 
     if (finished) {
         const played = [...veto.steps.filter((s) => s.action === "pick").map((s) => s.map), decider];
-        vetoTurn.innerHTML = `Gramy: <b>${played.map(mapName).join(", ")}</b>`;
+        vetoTurn.innerHTML = tr("veto.mapsSelected", { maps: I18N.formatList(played.map(mapName)) });
         vetoTurn.dataset.action = "done";
     } else {
-        vetoTurn.innerHTML = `Ruch ${step + 1} z ${order.length}: <b>${esc(TEAMS[vetoTeam(step)])}</b> ${order[step] === "ban" ? "banuje" : "wybiera"} mapę`;
+        vetoTurn.innerHTML = tr(order[step] === "ban" ? "veto.turnBan" : "veto.turnPick", { step: step + 1, total: order.length, team: TEAMS[vetoTeam(step)] });
         vetoTurn.dataset.action = order[step];
     }
 };
@@ -81,6 +85,7 @@ $("#veto-format").addEventListener("click", (e) => {
     if (!btn) return;
     veto.format = btn.dataset.format;
     $$("#veto-format .tab").forEach((tab) => tab.classList.toggle("active", tab === btn));
+    $$("#veto-format .tab").forEach((tab) => tab.setAttribute("aria-pressed", String(tab === btn)));
     resetVeto();
 });
 
@@ -99,3 +104,8 @@ $("#veto-auto").addEventListener("click", async (e) => {
 });
 
 renderVeto();
+document.addEventListener("cgp:languagechange", renderVeto);
+document.addEventListener("cgp:tournaments", () => {
+    refreshVetoTeams();
+    renderVeto();
+});

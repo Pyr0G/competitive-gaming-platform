@@ -1,3 +1,4 @@
+import { failure } from "./i18n.js";
 import { Router } from "express";
 import { query } from "./db.js";
 import { requireAdmin } from "./auth.js";
@@ -40,12 +41,12 @@ admin.get("/users", async (req, res) => {
 
 admin.post("/users/:id/ban", async (req, res) => {
     const id = Number(req.params.id);
-    if (id === req.userId) return res.status(400).json({ error: "Nie możesz zablokować siebie." });
+    if (id === req.userId) return res.status(400).json(failure(req, "error.selfBan"));
     const { rowCount } = await query(
         "UPDATE users SET banned_at = NOW(), is_admin = FALSE WHERE id = $1 AND banned_at IS NULL",
         [id],
     );
-    if (!rowCount) return res.status(404).json({ error: "Nie ma takiego konta albo jest już zablokowane." });
+    if (!rowCount) return res.status(404).json(failure(req, "error.userMissingOrBanned"));
     res.json({ ok: true });
 });
 
@@ -54,19 +55,19 @@ admin.post("/users/:id/unban", async (req, res) => {
         "UPDATE users SET banned_at = NULL WHERE id = $1 AND banned_at IS NOT NULL",
         [Number(req.params.id)],
     );
-    if (!rowCount) return res.status(404).json({ error: "To konto nie jest zablokowane." });
+    if (!rowCount) return res.status(404).json(failure(req, "error.userNotBanned"));
     res.json({ ok: true });
 });
 
 admin.post("/users/:id/admin", async (req, res) => {
     const id = Number(req.params.id);
     const on = req.body.on === true;
-    if (id === req.userId && !on) return res.status(400).json({ error: "Nie możesz zabrać sobie uprawnień." });
+    if (id === req.userId && !on) return res.status(400).json(failure(req, "error.selfDemotion"));
     const { rowCount } = await query(
         "UPDATE users SET is_admin = $2 WHERE id = $1 AND banned_at IS NULL",
         [id, on],
     );
-    if (!rowCount) return res.status(404).json({ error: "Nie ma takiego konta." });
+    if (!rowCount) return res.status(404).json(failure(req, "error.userMissing"));
     res.json({ ok: true });
 });
 
@@ -75,7 +76,7 @@ admin.post("/users/:id/verify", async (req, res) => {
         "UPDATE users SET email_verified_at = COALESCE(email_verified_at, NOW()) WHERE id = $1",
         [Number(req.params.id)],
     );
-    if (!rowCount) return res.status(404).json({ error: "Nie ma takiego konta." });
+    if (!rowCount) return res.status(404).json(failure(req, "error.userMissing"));
     res.json({ ok: true });
 });
 
@@ -97,7 +98,7 @@ admin.delete("/ads/:id", async (req, res) => {
         "UPDATE advertisements SET is_closed = TRUE WHERE id = $1 AND is_closed = FALSE",
         [Number(req.params.id)],
     );
-    if (!rowCount) return res.status(404).json({ error: "Ogłoszenie jest już zamknięte albo nie istnieje." });
+    if (!rowCount) return res.status(404).json(failure(req, "error.adMissing"));
     res.json({ ok: true });
 });
 
@@ -138,7 +139,7 @@ admin.post("/reports/:id/resolve", async (req, res) => {
         "UPDATE user_reports SET resolved = TRUE WHERE id = $1 AND resolved = FALSE",
         [Number(req.params.id)],
     );
-    if (!rowCount) return res.status(404).json({ error: "Zgłoszenie jest już zamknięte albo nie istnieje." });
+    if (!rowCount) return res.status(404).json(failure(req, "error.reportMissing"));
     res.json({ ok: true });
 });
 
@@ -157,7 +158,7 @@ admin.post("/tournaments/:id/cancel", async (req, res) => {
         "UPDATE tournaments SET status = 'cancelled' WHERE id = $1 AND status IN ('registration', 'in_progress')",
         [Number(req.params.id)],
     );
-    if (!rowCount) return res.status(400).json({ error: "Ten turniej jest już zakończony albo odwołany." });
+    if (!rowCount) return res.status(400).json(failure(req, "error.tournamentEnded"));
     res.json({ ok: true });
 });
 
@@ -166,7 +167,7 @@ admin.post("/tournaments/:id/close-reg", async (req, res) => {
         "UPDATE tournaments SET registration_closes_at = NOW() WHERE id = $1 AND status = 'registration'",
         [Number(req.params.id)],
     );
-    if (!rowCount) return res.status(400).json({ error: "Zapisy w tym turnieju nie są otwarte." });
+    if (!rowCount) return res.status(400).json(failure(req, "error.registrationClosed"));
     res.json({ ok: true });
 });
 
@@ -178,7 +179,7 @@ admin.get("/announcement", async (req, res) => {
 admin.post("/announcement", async (req, res) => {
     const content = String(req.body.content || "").trim();
     if (content.length < 8 || content.length > 200) {
-        return res.status(400).json({ error: "Komunikat musi mieć od 8 do 200 znaków." });
+        return res.status(400).json(failure(req, "error.noticeLength"));
     }
     await query("UPDATE announcements SET is_active = FALSE WHERE is_active");
     const { rows } = await query(
