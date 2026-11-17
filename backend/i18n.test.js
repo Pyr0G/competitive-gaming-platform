@@ -145,7 +145,13 @@ test("API messages negotiate language, ignore invalid and excluded locales, and 
     assert.equal(message(request, "auth.registered", { email: "name@example.com" }).messageKey, "auth.registered");
 });
 
-const createRuntime = ({ locales = ["en-GB"], saved = {}, search = "", blockedStorage = false } = {}) => {
+const createRuntime = ({
+    locales = ["en-GB"],
+    language = "en-GB",
+    saved = {},
+    search = "",
+    blockedStorage = false
+} = {}) => {
     const storage = new Map(Object.entries(saved));
     const events = [];
     const elements = [];
@@ -159,7 +165,7 @@ const createRuntime = ({ locales = ["en-GB"], saved = {}, search = "", blockedSt
     const listeners = {};
     const window = { CGP_LOCALE: core, CGP_LOCALES: catalogs, addEventListener: (name, handler) => { listeners[name] = handler; } };
     const context = vm.createContext({
-        window, document, navigator: { languages: locales }, location: { search }, URLSearchParams,
+        window, document, navigator: { languages: locales, language }, location: { search }, URLSearchParams,
         CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options?.detail; } },
         localStorage: {
             getItem: (key) => { if (blockedStorage) throw new Error("Storage blocked"); return storage.get(key) || null; },
@@ -205,4 +211,20 @@ test("storage failures do not prevent language changes and saved preferences ove
     fresh.storage.set("cgp-language", "en");
     fresh.listeners.storage({ key: "cgp-language" });
     assert.equal(fresh.i18n.language, "en");
+});
+
+test("browser locale detection falls back to navigator.language", () => {
+    const fallback = createRuntime({
+        locales: [],
+        language: "pl-PL"
+    });
+
+    assert.equal(fallback.i18n.locale, "pl-PL");
+
+    const unavailable = createRuntime({
+        locales: [],
+        language: ""
+    });
+
+    assert.equal(unavailable.i18n.locale, "en-GB");
 });

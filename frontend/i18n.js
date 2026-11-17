@@ -22,7 +22,15 @@
     }
     let current;
     const rebuild = () => {
-        current = core.create(window.CGP_LOCALES, { language: languagePreference, region: regionPreference, locales: navigator.languages || [navigator.language] });
+        const locales = navigator.languages?.length
+            ? navigator.languages
+            : [navigator.language].filter(Boolean);
+
+        current = core.create(window.CGP_LOCALES, {
+            language: languagePreference,
+            region: regionPreference,
+            locales
+        });
     };
     rebuild();
     const t = (key, values) => current.t(key, values);
