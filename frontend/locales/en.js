@@ -1,6 +1,7 @@
 (() => {
     const messages = Object.freeze({
     "meta.title": "CGP | CS2 tournaments and team recruitment",
+    "meta.description": "Find CS2 players, join tournaments and track your matches on CGP.",
     "nav.how": "How it works",
     "nav.tournaments": "Tournaments",
     "nav.recruitment": "Recruitment",
