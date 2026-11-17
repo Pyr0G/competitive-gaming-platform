@@ -1197,11 +1197,10 @@ const adCard = (ad) => {
         <div class="ad-who">
             <span class="avatar ${team ? "" : "avatar-player"}">${esc(team ? ad.team_tag : ad.nick[0])}</span>
             <div>
-                <h3>${esc(who)}</h3>
-                <p class="ad-sub">${team ? tr("ads.captainRoster", { captain: ad.captain, members: I18N.formatNumber(ad.members) }) : esc(ad.faceit_nick || tx("ads.noFaceit"))}</p>
-            </div>
+                <h3 dir="auto">${esc(who)}</h3>
+                <p class="ad-sub" dir="auto">${team ? tr("ads.captainRoster", { captain: ad.captain, members: I18N.formatNumber(ad.members) }) : esc(ad.faceit_nick || tx("ads.noFaceit"))}</p>            </div>
         </div>
-        <p class="ad-text">${esc(ad.description)}</p>
+        <p class="ad-text" dir="auto">${esc(ad.description)}</p>
         <ul class="chips">
             <li>${tr(ROLES[ad.role] || "role.any")}</li>
             ${ad.faceit_level ? `<li><span class="lvl ${levelClass(ad.faceit_level)}">${ad.faceit_level}${team ? "+" : ""}</span>FACEIT</li>` : ""}

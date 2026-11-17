@@ -66,9 +66,9 @@ const views = {
         return `<div class="admin-head"><h2>${tr("nav.recruitment")}</h2><p>${tr("admin.adsHelp")}</p></div>
         <table class="admin-table"><thead><tr><th>${tr("admin.author")}</th><th>${tr("admin.type")}</th><th>${tr("admin.content")}</th><th>${tr("common.status")}</th><th>${tr("common.actions")}</th></tr></thead>
         <tbody>${ads.map((a) => `<tr>
-            <td><b>${esc(a.nick)}</b>${a.tag ? ` <em>${esc(a.tag)}</em>` : ""}</td>
+            <td><b dir="auto">${esc(a.nick)}</b>${a.tag ? ` <em dir="auto">${esc(a.tag)}</em>` : ""}</td>
             <td>${tr(a.type === "lfm" ? "ads.lookingPlayer" : "ads.lookingTeam")}</td>
-            <td>${esc(a.description)}</td>
+            <td dir="auto">${esc(a.description)}</td>
             <td>${tr(a.is_closed ? "admin.closed" : "admin.open")}</td>
             <td>${a.is_closed ? "" : `<button type="button" class="btn btn-ghost" data-admin-act="ad" data-id="${a.id}">${tr("action.close")}</button>`}</td>
         </tr>`).join("")}</tbody></table>`;
@@ -79,8 +79,8 @@ const views = {
         return `<div class="admin-head"><h2>${tr("admin.reports")}</h2><p>${tr("admin.reportsHelp")}</p></div>
         <div class="admin-reports">${reports.map((r) => `<article class="admin-card ${r.resolved ? "done" : ""}">
             <header>${tr("admin.reportedBy", { reporter: r.reporter, reported: r.reported })}${stamp(r.created_at)}</header>
-            <p>${esc(r.reason)}</p>
-            ${r.messages?.length ? `<ol>${r.messages.map((m) => `<li><b>${esc(m.nick)}:</b> ${esc(m.content)}</li>`).join("")}</ol>` : ""}
+            <p dir="auto">${esc(r.reason)}</p>
+            ${r.messages?.length ? `<ol>${r.messages.map((m) => `<li><b dir="auto">${esc(m.nick)}:</b> <span dir="auto">${esc(m.content)}</span></li>`).join("")}</ol>` : ""}
             ${r.resolved ? `<em>${tr("admin.closed")}</em>` : `<div class="admin-actions">
                 <button type="button" class="btn" data-admin-act="resolve" data-id="${r.id}">${tr("admin.resolve")}</button>
                 <button type="button" class="btn btn-ghost" data-admin-act="ban" data-id="${r.reported_id}">${tr("admin.banNamed", { nick: r.reported })}</button>
