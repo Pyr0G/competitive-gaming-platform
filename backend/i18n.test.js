@@ -143,6 +143,8 @@ test("API messages negotiate language, ignore invalid and excluded locales, and 
     assert.equal(translateRequest({ headers: { "x-cgp-language": "en", "x-cgp-region": "PL" } }).language, "en");
     assert.deepEqual(failure(request, "error.signIn"), { error: "Zaloguj się, aby kontynuować.", errorKey: "error.signIn", values: {} });
     assert.equal(message(request, "auth.registered", { email: "name@example.com" }).messageKey, "auth.registered");
+    assert.equal(translateRequest({ headers: { "accept-language": "en-US;Q=0.2, pl-PL;Q=0.9" } }).language, "pl");
+    assert.equal(translateRequest({ headers: { "accept-language": "pl-PL;Q=0, en-US;Q=0.5" } }).language, "en");
 });
 
 const createRuntime = ({

@@ -6,7 +6,7 @@ export const catalogs = Object.freeze({ en, pl });
 
 const acceptedLocales = (header = "") => String(header).slice(0, 512).split(",").slice(0, 16).map((part, index) => {
     const [tag, ...parameters] = part.trim().split(";");
-    const weight = parameters.find((value) => value.trim().startsWith("q="));
+    const weight = parameters.find((value) => /^q=/i.test(value.trim()));
     const quality = weight ? Number(weight.trim().slice(2)) : 1;
     return { tag, quality, index };
 }).filter(({ quality }) => quality > 0 && quality <= 1).sort((a, b) => b.quality - a.quality || a.index - b.index).map(({ tag }) => tag);
