@@ -1,0 +1,63 @@
+ALTER TABLE users ADD COLUMN IF NOT EXISTS is_admin BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS banned_at TIMESTAMPTZ;
+
+CREATE TABLE IF NOT EXISTS conversations (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_a_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    user_b_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (user_a_id < user_b_id),
+    UNIQUE (user_a_id, user_b_id)
+);
+
+CREATE TABLE IF NOT EXISTS messages (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    conversation_id BIGINT NOT NULL REFERENCES conversations (id) ON DELETE CASCADE,
+    sender_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    content VARCHAR(2000) NOT NULL,
+    sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    read_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS messages_conversation ON messages (conversation_id, sent_at);
+
+CREATE TABLE IF NOT EXISTS user_blocks (
+    blocker_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    blocked_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (blocker_id, blocked_id),
+    CHECK (blocker_id <> blocked_id)
+);
+
+CREATE TABLE IF NOT EXISTS user_reports (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    reporter_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    reported_id BIGINT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+    conversation_id BIGINT REFERENCES conversations (id) ON DELETE SET NULL,
+    reason VARCHAR(1000) NOT NULL,
+    resolved BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE user_reports ADD COLUMN IF NOT EXISTS conversation_id BIGINT REFERENCES conversations (id) ON DELETE SET NULL;
+
+CREATE TABLE IF NOT EXISTS announcements (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    content VARCHAR(200) NOT NULL,
+    created_by BIGINT REFERENCES users (id) ON DELETE SET NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'cgp_app') THEN
+        GRANT SELECT, INSERT, UPDATE, DELETE ON
+            conversations, messages, user_blocks, user_reports, announcements
+            TO cgp_app;
+        GRANT USAGE, SELECT ON SEQUENCE
+            conversations_id_seq, messages_id_seq, user_reports_id_seq, announcements_id_seq
+            TO cgp_app;
+    END IF;
+END;
+$$;
