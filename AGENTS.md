@@ -2,32 +2,37 @@
 
 ## Project state
 
-CGP is being created as a completely new React application with SQLite storage, hosted entirely on Cloudflare. Keep the new application in this repository. The previous application and its files are preserved under `prototype/` for reference, with only selected parts expected to be reused.
+CGP is a React and TypeScript application with a Worker API and SQLite storage through D1. The initial version supports accounts, public profiles, player search, private text chat, blocking, message reports, and basic moderation. The home content area is empty; future sidebar entries do not implement their features.
 
-No new application source, schema, or Cloudflare deployment workflow has been added yet. Do not describe prototype functionality as implemented in the rebuild or turn a documentation task into implementation of the new application.
+Work only on the local application until hosting is explicitly requested. `wrangler.local.jsonc` exists for offline runtime and storage simulation. Do not log in to Cloudflare, create remote resources, configure domains, or deploy as part of local development.
 
 ## Read first
 
-- [README.md](README.md): project status and repository layout.
-- [docs/REBUILD.md](docs/REBUILD.md): rebuild scope and intended architecture.
-- [CONTRIBUTING.md](CONTRIBUTING.md): contribution and validation rules.
-- [DEPLOYMENT.md](DEPLOYMENT.md): deployment status.
-- [SECURITY.md](SECURITY.md): private vulnerability reporting and responsible testing.
+- [README.md](README.md): available behavior, layout, and commands.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): runtime, storage, API, and security boundaries.
+- [docs/LOCAL_TESTING.md](docs/LOCAL_TESTING.md): checks and administrator access.
+- [CONTRIBUTING.md](CONTRIBUTING.md): implementation and validation.
+- [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md): hosted-release status.
+- [SECURITY.md](SECURITY.md): private reporting and responsible testing.
 
-When changing reference files, also read [prototype/AGENTS.md](prototype/AGENTS.md) and the relevant prototype guides. Their Node.js, Express, PostgreSQL, and Docker rules apply to that reference application, not automatically to the new program.
+## Implementation and public repository rules
 
-## Public repository rules
-
-- Keep public content limited to application behavior and portable setup instructions. Do not include private infrastructure topology, addresses, machine or account identifiers, deployment-specific paths, credentials, or unrelated security configuration.
-- Use generic example domains, synthetic data, and placeholders. Check documentation, templates, screenshots, commit messages, and published history as well as code.
-- Keep the prototype available under `prototype/`. Add new CGP source alongside it in this repository when implementation is requested.
-- Clearly distinguish plans, demonstration behavior, and verified functionality. Do not invent runnable commands before their configuration exists.
-- Keep code simple and readable, without code comments. Keep maintained repository guidance and contribution documents in English.
-- Keep application-owned copy and accessible labels in shared English and Polish catalogs when implementing the new interface. English is the fallback. Preserve the reference application's localization rules when changing it.
-- Use small commits with English messages prefixed by `frontend:`, `backend:`, `database:`, or `docs:`.
+- Keep code simple and readable, without code comments. Avoid unnecessary dependencies and client-side logic.
+- Group frontend features under `src/features/`. Keep the application shell and providers in `src/app/`, shared controls in `src/components/`, the API client in `src/lib/`, translations in `src/i18n/`, and centralized CSS in `src/styles/`.
+- Centralize design tokens, reusable styles, fonts, and shared controls.
+- Keep application copy and accessible labels in shared English and Polish catalogs. English is the fallback. Use locale-aware formatting and explicit time zones.
+- Use prepared SQL and explicit migrations; do not initialize schemas or seed accounts on startup.
+- Preserve server-side authorization, participant-only chat, CSRF and origin checks, request limits, private password hashing, and immediate session revocation.
+- Grant or revoke administrators only through direct database interaction. Never add a public role-editing route or seeded administrator.
+- Limit public content to portable setup and application behavior. Use synthetic data, generic domains, and placeholders; exclude private infrastructure, addresses, machine or account identifiers, deployment paths, credentials, and unrelated security configuration.
+- Check documentation, templates, screenshots, commit messages, and proposed history for private information as well as code.
+- Call the application CGP in maintained guidance. Distinguish working behavior, future features, local checks, and hosted verification.
+- Keep maintained guidance in English. Use small commits with English messages prefixed by `frontend:`, `backend:`, `database:`, or `docs:`.
 
 ## Validation
 
-For documentation changes, check formatting, file links, section anchors, and commands against the actual layout. For changes to the prototype or its paths, run `npm test --prefix prototype/backend` from the repository root on Node.js 22 or newer. The prototype tests use database/mail mocks and a local TLS server; they do not verify a live deployment, migrations, or restoration.
+Use Node.js 24 or newer and pnpm 11.25.0. Run `pnpm check` for application changes and relevant `pnpm test:e2e` scenarios. Use the real local Worker runtime and isolated SQLite storage for integration tests. Local CPU behavior does not prove hosted Free-plan limits.
 
-Define the new application's development and validation commands alongside its implementation. Keep its checks separate from prototype checks and deployment verification.
+For documentation, verify formatting, links, anchors, and commands.
+
+Run Codex Security after implementation changes and address validated vulnerabilities before hosted-release review. Do not claim tests or scans prove the absence of every vulnerability.

@@ -1,0 +1,923 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+import { guideEn, guidePl } from "./guide";
+
+const en = {
+  ...guideEn,
+  "guide.recruitment.teamListing": "Team listing",
+  "guide.recruitment.playerListing": "Player listing",
+  "guide.recruitment.role": "In-game role",
+  "guide.recruitment.levelLabel": "FACEIT level",
+  "guide.recruitment.availability": "Availability",
+  "guide.role.igl": "In-game leader",
+  "guide.teams.members": "Roster size",
+  "guide.teams.vacancies": "Vacancies",
+  "guide.teams.player": "Player",
+  "guide.teams.membership": "Membership",
+  "guide.teams.unassigned": "Not assigned",
+  "guide.teams.recruiting": "Recruitment open",
+  "guide.veto.selectedSeries": "Series maps: {maps}.",
+  "guide.veto.pickTurn": "{team} picks next. Choose a map.",
+  "guide.veto.pick": "Pick {map}",
+  "guide.veto.picked": "{map}, picked",
+  "guide.veto.pickByTeam": "Picked by {team}",
+  "guide.veto.seriesTitle": "Selected maps in play order",
+  "guide.veto.logPick": "{team} picks {map}.",
+  "guide.versus": "vs",
+  "guide.recruitment.count": "Example listings: {count}",
+  "guide.recruitment.entryDescription":
+    "Entry role vacancy for scheduled team practice and community tournaments.",
+  "guide.recruitment.awpDescription":
+    "AWP player available for a team with scheduled evening practice.",
+  "guide.recruitment.supportDescription":
+    "Support role vacancy in an established four-player roster.",
+  "guide.recruitment.contactPreview": "Contact process",
+  "guide.tournaments.selectMatch": "View match: {a} vs {b}",
+  "guide.tournaments.completed": "Completed",
+  "guide.tournaments.bracket":
+    "Example tournament bracket; scroll to see all rounds",
+  "guide.tournaments.champion": "Champion",
+  "guide.tournaments.details": "Match details",
+  "guide.tournaments.status": "Status",
+  "guide.tournaments.map": "Map",
+  "guide.tournaments.matchFormat": "Format",
+  "guide.results.reference": "Example FACEIT match link",
+  "guide.rankings.form": "Recent form",
+  "guide.rankings.titles": "Titles",
+  "guide.rankings.win": "Win",
+  "guide.rankings.loss": "Loss",
+  "guide.rankings.winShort": "W",
+  "guide.rankings.lossShort": "L",
+  "guide.rankings.insights": "Tournament statistics",
+  "guide.rankings.maps": "Tournament maps",
+  "guide.rankings.facts": "Match statistics",
+  "guide.rankings.matches": "Matches completed",
+  "guide.rankings.totalRounds": "Total rounds",
+  "guide.veto.progress": "Veto steps: {count} / {total}",
+  "guide.veto.byTeam": "Banned by {team}",
+  "guide.veto.decider": "Deciding map",
+  "guide.veto.available": "Available",
+  "guide.veto.logTitle": "Map veto history",
+  "guide.veto.logBan": "{team} bans {map}.",
+  "nav.guide": "Guide",
+  "guide.title": "A look ahead at CGP",
+  "guide.intro":
+    "From finding your next teammate to following a tournament final, explore how CGP could bring the journey together.",
+  "guide.preview": "Feature preview",
+  "guide.notice":
+    "Interactive previews of planned features. Names, schedules, and results are examples. No tournament, listing, or match result is saved. Examples reset when you leave or reload the Guide.",
+  "guide.sample": "Example data",
+  "guide.explore": "Explore future features",
+  "guide.choose": "Choose a feature preview",
+  "guide.reset": "Reset preview",
+  "guide.recruitment.title": "Recruitment",
+  "guide.recruitment.description":
+    "Find players or a team by role, FACEIT level, and availability. Explore these example listings and the proposed contact and listing forms.",
+  "guide.recruitment.filter": "Filter by role",
+  "guide.recruitment.all": "All roles",
+  "guide.role.entry": "Entry fragger",
+  "guide.role.awp": "AWPer",
+  "guide.role.support": "Support",
+  "guide.recruitment.playerWanted": "Team vacancy",
+  "guide.recruitment.teamWanted": "Player availability",
+  "guide.recruitment.level": "FACEIT level {level}+",
+  "guide.recruitment.evenings": "Evenings",
+  "guide.recruitment.contact":
+    "A future listing could lead to the player or captain profile, where you could start a private conversation. These example listings do not contact anyone.",
+  "guide.teams.title": "Teams",
+  "guide.teams.description":
+    "Review a team roster, player roles and membership permissions. This example contains four members and one vacant position.",
+  "guide.teams.roster": "Example five-player roster",
+  "guide.teams.captain": "Captain",
+  "guide.teams.member": "Member",
+  "guide.teams.openSlot": "Vacant position",
+  "guide.teams.permissions": "Planned team permissions",
+  "guide.teams.permissionsHelp":
+    "Captains could manage invitations, the roster and tournament entries. Players would accept invitations before joining. Team creation and invitations are not available yet.",
+  "guide.tournaments.title": "Tournaments",
+  "guide.tournaments.description":
+    "Browse events, check entry requirements and follow a bracket. Select an example match to inspect its details.",
+  "guide.tournaments.cup": "Community Cup",
+  "guide.tournaments.format":
+    "Example event: four teams, single elimination, BO1",
+  "guide.tournaments.semifinals": "Semifinals",
+  "guide.tournaments.final": "Final",
+  "guide.tournaments.match": "{a} vs {b}. Map: {map}. Example match completed.",
+  "guide.tournaments.help":
+    "In a future event, captains could register an eligible roster and follow scheduled matches here. This bracket has no real registrations or matches.",
+  "guide.results.title": "Match results",
+  "guide.results.description":
+    "See the proposed path from a FACEIT match reference to a tournament result. This walkthrough uses a fixed example and makes no external requests.",
+  "guide.results.sample": "Illustrative match reference",
+  "guide.results.link": "Recognize the match reference",
+  "guide.results.finished": "Confirm the match has finished",
+  "guide.results.roster": "Compare the players with the registered rosters",
+  "guide.results.advance": "Record the score and advance the winning team",
+  "guide.results.try": "Preview result checks",
+  "guide.results.help":
+    "These are proposed checks. The preview does not validate a real match or change a bracket.",
+  "guide.results.complete":
+    "Example complete: Atlas wins 13–9. No result was imported or saved.",
+  "guide.rankings.title": "Rankings",
+  "guide.rankings.description":
+    "Compare eight teams across completed community matches, including the bracket example. Teams are ordered by wins, round difference and name.",
+  "guide.rankings.caption":
+    "Illustrative standings from completed matches, not an Elo rating.",
+  "guide.rankings.place": "Place",
+  "guide.rankings.team": "Team",
+  "guide.rankings.played": "Played",
+  "guide.rankings.won": "Wins",
+  "guide.rankings.lost": "Losses",
+  "guide.rankings.rounds": "Round difference",
+  "guide.veto.title": "Map veto",
+  "guide.veto.description":
+    "Try a BO3 veto: ban, ban, pick, pick, ban, ban. The remaining map is the decider. This is an illustrative pool, not an official competition pool.",
+  "guide.veto.turn": "{team} bans next. Choose a map.",
+  "guide.veto.selected": "Selected map: {map}.",
+  "guide.veto.ban": "Ban {map}",
+  "guide.veto.banned": "{map}, banned",
+  "guide.veto.help":
+    "Try the sequence and reset it to start again. Choices are not saved to a match.",
+  "guide.available": "Available now",
+  "guide.availableTitle": "Start with the features already here",
+  "guide.account.title": "Your player identity",
+  "guide.account.description":
+    "Create an account, edit your username and bio, and choose your language, region and time zone. Your email stays private.",
+  "guide.chat.title": "Connect with other players",
+  "guide.chat.description":
+    "Use the top search to find a real player, open their profile and send a private message. Chat includes unread updates, blocking and reporting.",
+  "app.title": "CGP",
+  "app.tagline": "Competitive Gaming Platform",
+  "footer.navigation": "Footer navigation",
+  "footer.copyright": "© {year} CGP. All rights reserved.",
+  "nav.home": "Home",
+  "nav.tournaments": "Tournaments",
+  "nav.teams": "Teams",
+  "nav.recruitment": "Recruitment",
+  "nav.rankings": "Rankings",
+  "nav.future": "Coming later",
+  "nav.menu": "Open navigation",
+  "nav.close": "Close navigation",
+  "nav.main": "Main navigation",
+  "nav.skip": "Skip to content",
+  "common.close": "Close",
+  "common.cancel": "Cancel",
+  "common.save": "Save changes",
+  "common.saving": "Saving…",
+  "common.loading": "Loading…",
+  "common.retry": "Try again",
+  "common.back": "Back",
+  "common.more": "Load more",
+  "common.saved": "Changes saved.",
+  "common.none": "None",
+  "common.optional": "Optional",
+  "common.actions": "Actions",
+  "common.refresh": "Refresh",
+  "search.placeholder": "Search players, teams, tournaments…",
+  "search.label": "Search CGP",
+  "search.title": "Find your next connection",
+  "search.hint": "Search for a player by username.",
+  "search.overview": "Overview",
+  "search.players": "Players",
+  "search.teams": "Teams",
+  "search.tournaments": "Tournaments",
+  "search.future": "Team and tournament search will be available later.",
+  "search.empty": "No players found.",
+  "search.minimum": "Enter at least 2 characters.",
+  "search.count": "{count} players",
+  "search.open": "View profile for {name}",
+  "search.clear": "Clear search",
+  "auth.login": "Sign in",
+  "auth.register": "Create account",
+  "auth.logout": "Sign out",
+  "auth.welcome": "Welcome back",
+  "auth.loginHelp": "Sign in to your CGP account.",
+  "auth.registerHelp": "Create your player account and start a conversation.",
+  "auth.username": "Username",
+  "auth.email": "Email address",
+  "auth.identifier": "Username or email",
+  "auth.password": "Password",
+  "auth.confirm": "Confirm password",
+  "auth.currentPassword": "Current password",
+  "auth.newPassword": "New password",
+  "auth.passwordHint":
+    "Use 8–128 characters. Spaces and password managers are welcome.",
+  "auth.usernameHint": "3–24 letters, numbers, dots, underscores or hyphens.",
+  "auth.emailHint": "Email delivery and recovery will be added later.",
+  "auth.haveAccount": "Already have an account?",
+  "auth.needAccount": "New to CGP?",
+  "auth.creating": "Creating account…",
+  "auth.signingIn": "Signing in…",
+  "auth.required": "Sign in to continue.",
+  "auth.mismatch": "The passwords do not match.",
+  "auth.sessionExpired": "Your session has ended. Sign in again.",
+  "account.title": "Your account",
+  "account.profile": "Profile",
+  "account.security": "Security",
+  "account.preferences": "Language & region",
+  "account.displayName": "Display name",
+  "account.bio": "About you",
+  "account.bioHint": "A short introduction. Maximum 500 characters.",
+  "account.profileHelp": "Choose how other players see you.",
+  "account.usernameHelp": "Your username identifies your public profile.",
+  "account.emailPrivate":
+    "Your email is private and is never shown on your profile.",
+  "account.changePassword": "Change password",
+  "account.passwordHelp":
+    "Changing your password signs out your other sessions.",
+  "account.passwordChanged": "Your password has been changed.",
+  "account.sessions": "Other sessions",
+  "account.sessionsHelp": "Sign out other browsers and devices.",
+  "account.revokeSessions": "Sign out other sessions",
+  "account.sessionsRevoked": "Other sessions have been signed out.",
+  "account.delete": "Delete account",
+  "account.deleteHelp":
+    "Permanently remove your account. This cannot be undone.",
+  "account.deleteConfirm": "Delete your account?",
+  "account.deleteAction": "Permanently delete account",
+  "account.publicProfile": "View public profile",
+  "locale.title": "Language & region",
+  "locale.language": "Language",
+  "locale.region": "Region",
+  "locale.timezone": "Time zone",
+  "locale.automatic": "Automatic",
+  "locale.english": "English",
+  "locale.polish": "Polski",
+  "locale.help":
+    "Language controls the interface. Region controls formatting. Time zone controls displayed times.",
+  "locale.saved": "Preferences apply to this browser.",
+  "profile.joined": "Joined {date}",
+  "profile.message": "Send message",
+  "profile.about": "About",
+  "profile.noBio": "This player has not added a bio yet.",
+  "profile.notFound": "Player not found",
+  "profile.block": "Block player",
+  "profile.unblock": "Unblock player",
+  "profile.report": "Report player",
+  "profile.blocked": "Player blocked.",
+  "profile.unblocked": "Player unblocked.",
+  "profile.blockHelp": "Blocking prevents messages in both directions.",
+  "profile.self": "Edit your profile",
+  "profile.unavailable": "This profile is unavailable.",
+  "chat.title": "Messages",
+  "chat.open": "Open messages",
+  "chat.empty": "Your conversations will appear here.",
+  "chat.start": "Find a player to start a conversation.",
+  "chat.select": "Choose a conversation",
+  "chat.placeholder": "Write a message…",
+  "chat.send": "Send message",
+  "chat.messageLabel": "Message",
+  "chat.noMessages": "Say hello. Start the conversation.",
+  "chat.unread": "{count} unread messages",
+  "chat.previous": "Load earlier messages",
+  "chat.blocked": "Messaging is unavailable while a block is active.",
+  "chat.you": "You",
+  "chat.sending": "Sending…",
+  "chat.report": "Report message",
+  "chat.connection": "Messages could not refresh. Retrying shortly.",
+  "chat.new": "New message",
+  "chat.markRead": "Mark as read",
+  "chat.reportHelp":
+    "Report a specific message so moderators can review the relevant context.",
+  "notifications.title": "Notifications",
+  "notifications.open": "Open notifications",
+  "notifications.empty": "You’re all caught up.",
+  "notifications.help": "New messages appear here.",
+  "notifications.from": "New message from {name}",
+  "notifications.view": "View conversation",
+  "report.title": "Report a player",
+  "report.reason": "Reason",
+  "report.details": "Additional details",
+  "report.help":
+    "Tell moderators what happened. Do not include passwords or private account information.",
+  "report.submit": "Submit report",
+  "report.sent": "Report submitted. Moderators will review it.",
+  "report.spam": "Spam",
+  "report.harassment": "Harassment",
+  "report.threats": "Threats",
+  "report.other": "Other",
+  "admin.title": "Administration",
+  "admin.label": "Moderation",
+  "admin.users": "Users",
+  "admin.reports": "Reports",
+  "admin.audit": "Action log",
+  "admin.usersHint": "Search users and manage account restrictions.",
+  "admin.search": "Search users",
+  "admin.status": "Status",
+  "admin.active": "Active",
+  "admin.banned": "Banned",
+  "admin.admin": "Administrator",
+  "admin.member": "Player",
+  "admin.role": "Role",
+  "admin.joined": "Joined",
+  "admin.ban": "Ban user",
+  "admin.unban": "Unban user",
+  "admin.reason": "Moderation reason",
+  "admin.banHelp":
+    "Banning signs out this user and prevents access to authenticated features.",
+  "admin.confirmBan": "Ban {name}?",
+  "admin.confirmUnban": "Unban {name}?",
+  "admin.bannedSuccess": "User banned.",
+  "admin.unbannedSuccess": "User unbanned.",
+  "admin.noUsers": "No users found.",
+  "admin.open": "Open",
+  "admin.resolved": "Resolved",
+  "admin.all": "All",
+  "admin.noReports": "No reports to review.",
+  "admin.reportedBy": "Reported by {name}",
+  "admin.reportedUser": "Reported player",
+  "admin.evidence": "Reported message",
+  "admin.resolve": "Resolve report",
+  "admin.resolveNote": "Resolution note",
+  "admin.resolveHelp": "Record the moderation outcome.",
+  "admin.resolvedSuccess": "Report resolved.",
+  "admin.noAudit": "No moderation actions yet.",
+  "admin.actor": "Administrator",
+  "admin.target": "User",
+  "admin.action": "Action",
+  "admin.date": "Date",
+  "admin.reportDetails": "Report details",
+  "admin.noAccess": "You do not have access to this page.",
+  "admin.action.user_banned": "User banned",
+  "admin.action.user_unbanned": "User unbanned",
+  "admin.action.report_resolved": "Report resolved",
+  "error.generic": "Something went wrong. Try again.",
+  "error.network":
+    "Could not connect to CGP. Check your connection and try again.",
+  "error.invalid_request": "Check the information you entered.",
+  "error.validation_error": "Check the information you entered.",
+  "error.invalid_credentials": "The username, email or password is incorrect.",
+  "error.username_taken": "This username is already in use.",
+  "error.email_taken": "This email address is already in use.",
+  "error.account_exists": "An account already uses this username or email.",
+  "error.unauthorized": "Sign in to continue.",
+  "error.forbidden": "You do not have permission to do this.",
+  "error.not_found": "The requested item was not found.",
+  "error.rate_limited": "Too many requests. Please wait and try again.",
+  "error.account_banned": "This account is banned.",
+  "error.banned": "This account is banned.",
+  "error.chat_blocked": "Messaging is unavailable while a block is active.",
+  "error.blocked": "Messaging is unavailable while a block is active.",
+  "error.password_incorrect": "The current password is incorrect.",
+  "error.invalid_password": "The current password is incorrect.",
+  "error.csrf": "Your session needs refreshing. Reload the page and try again.",
+  "error.conflict":
+    "This action conflicts with a recent change. Refresh and try again.",
+  "error.message_too_long": "Your message is too long.",
+  "error.self_conversation": "Choose another player to start a conversation.",
+  "error.self_action": "This action is unavailable for your own account.",
+  "error.admin_protected":
+    "Administrator accounts require manual database moderation.",
+  "error.unavailable": "This action is currently unavailable.",
+} as const;
+
+const pl: Record<keyof typeof en, string> = {
+  ...guidePl,
+  "guide.recruitment.teamListing": "Ogłoszenie drużyny",
+  "guide.recruitment.playerListing": "Ogłoszenie gracza",
+  "guide.recruitment.role": "Rola w grze",
+  "guide.recruitment.levelLabel": "Poziom FACEIT",
+  "guide.recruitment.availability": "Dostępność",
+  "guide.role.igl": "Prowadzący grę",
+  "guide.teams.members": "Liczebność składu",
+  "guide.teams.vacancies": "Wolne miejsca",
+  "guide.teams.player": "Gracz",
+  "guide.teams.membership": "Członkostwo",
+  "guide.teams.unassigned": "Nieprzypisana",
+  "guide.teams.recruiting": "Rekrutacja otwarta",
+  "guide.veto.selectedSeries": "Mapy serii: {maps}.",
+  "guide.veto.pickTurn": "Teraz wybiera {team}. Wybierz mapę.",
+  "guide.veto.pick": "Wybierz {map}",
+  "guide.veto.picked": "{map}, wybrana",
+  "guide.veto.pickByTeam": "Wybrana przez {team}",
+  "guide.veto.seriesTitle": "Wybrane mapy w kolejności gry",
+  "guide.veto.logPick": "{team} wybiera mapę {map}.",
+  "guide.versus": "kontra",
+  "guide.recruitment.count": "Przykładowe ogłoszenia: {count}",
+  "guide.recruitment.entryDescription":
+    "Wakat na pozycji entry fraggera w składzie uczestniczącym w regularnych treningach i turniejach społeczności.",
+  "guide.recruitment.awpDescription":
+    "Snajper dostępny dla drużyny prowadzącej regularne treningi wieczorami.",
+  "guide.recruitment.supportDescription":
+    "Wakat na pozycji wsparcia w istniejącym czteroosobowym składzie.",
+  "guide.recruitment.contactPreview": "Zasady kontaktu",
+  "guide.tournaments.selectMatch": "Zobacz mecz: {a} kontra {b}",
+  "guide.tournaments.completed": "Zakończony",
+  "guide.tournaments.bracket":
+    "Przykładowa drabinka turnieju. Przewiń, aby zobaczyć wszystkie rundy",
+  "guide.tournaments.champion": "Zwycięzca",
+  "guide.tournaments.details": "Szczegóły meczu",
+  "guide.tournaments.status": "Status",
+  "guide.tournaments.map": "Mapa",
+  "guide.tournaments.matchFormat": "Format",
+  "guide.results.reference": "Przykładowy link do meczu FACEIT",
+  "guide.rankings.form": "Ostatnie wyniki",
+  "guide.rankings.titles": "Tytuły",
+  "guide.rankings.win": "Wygrana",
+  "guide.rankings.loss": "Przegrana",
+  "guide.rankings.winShort": "W",
+  "guide.rankings.lossShort": "P",
+  "guide.rankings.insights": "Statystyki turnieju",
+  "guide.rankings.maps": "Mapy turnieju",
+  "guide.rankings.facts": "Statystyki meczów",
+  "guide.rankings.matches": "Zakończone mecze",
+  "guide.rankings.totalRounds": "Suma rund",
+  "guide.veto.progress": "Etapy wyboru map: {count} / {total}",
+  "guide.veto.byTeam": "Odrzucona przez {team}",
+  "guide.veto.decider": "Mapa decydująca",
+  "guide.veto.available": "Dostępna",
+  "guide.veto.logTitle": "Historia wyboru map",
+  "guide.veto.logBan": "{team} odrzuca mapę {map}.",
+  "nav.guide": "Przewodnik",
+  "guide.title": "Poznaj przyszłe funkcje CGP",
+  "guide.intro":
+    "Od znalezienia gracza do wspólnej gry po śledzenie finału turnieju. Zobacz, jak CGP może połączyć te etapy.",
+  "guide.preview": "Podgląd funkcji",
+  "guide.notice":
+    "Interaktywne podglądy planowanych funkcji. Nazwy, terminy i wyniki są przykładowe. Żaden turniej, ogłoszenie ani wynik meczu nie jest zapisywany. Przykłady resetują się po opuszczeniu lub odświeżeniu poradnika.",
+  "guide.sample": "Dane przykładowe",
+  "guide.explore": "Poznaj przyszłe funkcje",
+  "guide.choose": "Wybierz podgląd funkcji",
+  "guide.reset": "Zresetuj podgląd",
+  "guide.recruitment.title": "Rekrutacja",
+  "guide.recruitment.description":
+    "Znajdź graczy lub drużynę według roli, poziomu FACEIT i dostępności. Poznaj przykładowe ogłoszenia oraz proponowane formularze kontaktu i rekrutacji.",
+  "guide.recruitment.filter": "Filtruj według roli",
+  "guide.recruitment.all": "Wszystkie role",
+  "guide.role.entry": "Entry fragger",
+  "guide.role.awp": "Snajper",
+  "guide.role.support": "Wsparcie",
+  "guide.recruitment.playerWanted": "Wakat w drużynie",
+  "guide.recruitment.teamWanted": "Dostępność gracza",
+  "guide.recruitment.level": "Poziom FACEIT {level}+",
+  "guide.recruitment.evenings": "Wieczory",
+  "guide.recruitment.contact":
+    "Przyszłe ogłoszenie może prowadzić do profilu gracza lub kapitana, z którego rozpoczniesz prywatną rozmowę. Przykładowe ogłoszenia nie kontaktują się z nikim.",
+  "guide.teams.title": "Drużyny",
+  "guide.teams.description":
+    "Przeglądaj skład drużyny, role graczy i uprawnienia członków. Przykład zawiera czterech członków i jeden wakat.",
+  "guide.teams.roster": "Przykładowy skład pięcioosobowy",
+  "guide.teams.captain": "Kapitan",
+  "guide.teams.member": "Członek drużyny",
+  "guide.teams.openSlot": "Wakat w składzie",
+  "guide.teams.permissions": "Planowane uprawnienia w drużynie",
+  "guide.teams.permissionsHelp":
+    "Kapitanowie mogą zarządzać zaproszeniami, składem i zgłoszeniami do turniejów. Dołączenie gracza wymagałoby przyjęcia zaproszenia. Tworzenie drużyn i zaproszenia nie są jeszcze dostępne.",
+  "guide.tournaments.title": "Turnieje",
+  "guide.tournaments.description":
+    "Przeglądaj wydarzenia, sprawdzaj wymagania i śledź drabinkę. Wybierz przykładowy mecz, aby zobaczyć szczegóły.",
+  "guide.tournaments.cup": "Puchar społeczności",
+  "guide.tournaments.format":
+    "Przykładowy turniej: cztery drużyny, pojedyncza eliminacja, BO1",
+  "guide.tournaments.semifinals": "Półfinały",
+  "guide.tournaments.final": "Finał",
+  "guide.tournaments.match":
+    "{a} kontra {b}. Mapa: {map}. Przykładowy mecz zakończony.",
+  "guide.tournaments.help":
+    "W przyszłym turnieju kapitanowie mogą zgłaszać składy spełniające wymagania i śledzić tutaj mecze. Ta drabinka nie zawiera rzeczywistych zgłoszeń ani meczów.",
+  "guide.results.title": "Wyniki meczów",
+  "guide.results.description":
+    "Poznaj proponowaną drogę od meczu FACEIT do wyniku w turnieju. Podgląd korzysta ze stałego przykładu i nie łączy się z zewnętrznymi usługami.",
+  "guide.results.sample": "Przykładowe dane meczu",
+  "guide.results.link": "Rozpoznanie identyfikatora meczu",
+  "guide.results.finished": "Potwierdzenie zakończenia meczu",
+  "guide.results.roster": "Porównanie graczy ze zgłoszonymi składami",
+  "guide.results.advance": "Zapisanie wyniku i awans zwycięskiej drużyny",
+  "guide.results.try": "Zobacz przykładową weryfikację",
+  "guide.results.help":
+    "To proponowane etapy weryfikacji. Podgląd nie sprawdza rzeczywistego meczu ani nie zmienia drabinki.",
+  "guide.results.complete":
+    "Przykład zakończony: Atlas wygrywa 13–9. Żaden wynik nie został pobrany ani zapisany.",
+  "guide.rankings.title": "Rankingi",
+  "guide.rankings.description":
+    "Porównaj osiem drużyn na podstawie zakończonych meczów społeczności, w tym przykładowej drabinki. Kolejność zależy od liczby wygranych, bilansu rund i nazwy.",
+  "guide.rankings.caption":
+    "Przykładowa klasyfikacja na podstawie zakończonych meczów. To nie jest ranking Elo.",
+  "guide.rankings.place": "Miejsce",
+  "guide.rankings.team": "Drużyna",
+  "guide.rankings.played": "Mecze",
+  "guide.rankings.won": "Wygrane",
+  "guide.rankings.lost": "Przegrane",
+  "guide.rankings.rounds": "Bilans rund",
+  "guide.veto.title": "Wybór map",
+  "guide.veto.description":
+    "Wypróbuj wybór map w BO3: odrzucenie, odrzucenie, wybór, wybór, odrzucenie, odrzucenie. Pozostała mapa rozstrzyga serię. Pula jest przykładowa i nie jest oficjalną pulą rozgrywek.",
+  "guide.veto.turn": "Teraz odrzuca {team}. Wybierz mapę.",
+  "guide.veto.selected": "Wybrana mapa: {map}.",
+  "guide.veto.ban": "Odrzuć {map}",
+  "guide.veto.banned": "{map}, odrzucona",
+  "guide.veto.help":
+    "Wypróbuj kolejne kroki i zresetuj podgląd, aby zacząć od nowa. Wybory nie są zapisywane w meczu.",
+  "guide.available": "Dostępne teraz",
+  "guide.availableTitle": "Zacznij od dostępnych funkcji",
+  "guide.account.title": "Twój profil gracza",
+  "guide.account.description":
+    "Utwórz konto, zmień nazwę użytkownika i opis oraz wybierz język, region i strefę czasową. Twój adres e-mail pozostaje prywatny.",
+  "guide.chat.title": "Rozmawiaj z innymi graczami",
+  "guide.chat.description":
+    "Znajdź gracza w górnej wyszukiwarce, otwórz jego profil i wyślij prywatną wiadomość. Czat obsługuje nieprzeczytane wiadomości, blokowanie i zgłaszanie.",
+  "app.title": "CGP",
+  "app.tagline": "Competitive Gaming Platform",
+  "footer.navigation": "Nawigacja w stopce",
+  "footer.copyright": "© {year} CGP. Wszelkie prawa zastrzeżone.",
+  "nav.home": "Strona główna",
+  "nav.tournaments": "Turnieje",
+  "nav.teams": "Drużyny",
+  "nav.recruitment": "Rekrutacja",
+  "nav.rankings": "Rankingi",
+  "nav.future": "Wkrótce",
+  "nav.menu": "Otwórz nawigację",
+  "nav.close": "Zamknij nawigację",
+  "nav.main": "Nawigacja główna",
+  "nav.skip": "Przejdź do treści",
+  "common.close": "Zamknij",
+  "common.cancel": "Anuluj",
+  "common.save": "Zapisz zmiany",
+  "common.saving": "Zapisywanie…",
+  "common.loading": "Wczytywanie…",
+  "common.retry": "Spróbuj ponownie",
+  "common.back": "Wstecz",
+  "common.more": "Wczytaj więcej",
+  "common.saved": "Zmiany zapisane.",
+  "common.none": "Brak",
+  "common.optional": "Opcjonalnie",
+  "common.actions": "Działania",
+  "common.refresh": "Odśwież",
+  "search.placeholder": "Szukaj graczy, drużyn, turniejów…",
+  "search.label": "Szukaj w CGP",
+  "search.title": "Znajdź graczy",
+  "search.hint": "Wyszukaj gracza po nazwie użytkownika.",
+  "search.overview": "Przegląd",
+  "search.players": "Gracze",
+  "search.teams": "Drużyny",
+  "search.tournaments": "Turnieje",
+  "search.future": "Wyszukiwanie drużyn i turniejów będzie dostępne później.",
+  "search.empty": "Nie znaleziono graczy.",
+  "search.minimum": "Wpisz co najmniej 2 znaki.",
+  "search.count": "Gracze: {count}",
+  "search.open": "Zobacz profil: {name}",
+  "search.clear": "Wyczyść wyszukiwanie",
+  "auth.login": "Zaloguj się",
+  "auth.register": "Utwórz konto",
+  "auth.logout": "Wyloguj się",
+  "auth.welcome": "Witaj ponownie",
+  "auth.loginHelp": "Zaloguj się na swoje konto CGP.",
+  "auth.registerHelp": "Utwórz konto gracza i rozpocznij rozmowę.",
+  "auth.username": "Nazwa użytkownika",
+  "auth.email": "Adres e-mail",
+  "auth.identifier": "Nazwa użytkownika lub e-mail",
+  "auth.password": "Hasło",
+  "auth.confirm": "Powtórz hasło",
+  "auth.currentPassword": "Obecne hasło",
+  "auth.newPassword": "Nowe hasło",
+  "auth.passwordHint":
+    "Użyj 8–128 znaków. Spacje i menedżery haseł są dozwolone.",
+  "auth.usernameHint": "3–24 litery, cyfry, kropki, podkreślenia lub łączniki.",
+  "auth.emailHint":
+    "Obsługa poczty i odzyskiwania konta zostanie dodana później.",
+  "auth.haveAccount": "Masz już konto?",
+  "auth.needAccount": "Nie masz konta?",
+  "auth.creating": "Tworzenie konta…",
+  "auth.signingIn": "Logowanie…",
+  "auth.required": "Zaloguj się, aby kontynuować.",
+  "auth.mismatch": "Hasła nie są takie same.",
+  "auth.sessionExpired": "Sesja wygasła. Zaloguj się ponownie.",
+  "account.title": "Twoje konto",
+  "account.profile": "Profil",
+  "account.security": "Bezpieczeństwo",
+  "account.preferences": "Język i region",
+  "account.displayName": "Nazwa wyświetlana",
+  "account.bio": "O Tobie",
+  "account.bioHint": "Krótkie przedstawienie. Maksymalnie 500 znaków.",
+  "account.profileHelp": "Wybierz, jak widzą Cię inni gracze.",
+  "account.usernameHelp":
+    "Nazwa użytkownika identyfikuje Twój profil publiczny.",
+  "account.emailPrivate":
+    "Twój e-mail jest prywatny i nie jest widoczny na profilu.",
+  "account.changePassword": "Zmień hasło",
+  "account.passwordHelp": "Zmiana hasła wyloguje pozostałe sesje.",
+  "account.passwordChanged": "Hasło zostało zmienione.",
+  "account.sessions": "Pozostałe sesje",
+  "account.sessionsHelp": "Wyloguj inne przeglądarki i urządzenia.",
+  "account.revokeSessions": "Wyloguj pozostałe sesje",
+  "account.sessionsRevoked": "Pozostałe sesje zostały wylogowane.",
+  "account.delete": "Usuń konto",
+  "account.deleteHelp":
+    "Trwale usuń swoje konto. Tej operacji nie można cofnąć.",
+  "account.deleteConfirm": "Usunąć Twoje konto?",
+  "account.deleteAction": "Trwale usuń konto",
+  "account.publicProfile": "Zobacz profil publiczny",
+  "locale.title": "Język i region",
+  "locale.language": "Język",
+  "locale.region": "Region",
+  "locale.timezone": "Strefa czasowa",
+  "locale.automatic": "Automatycznie",
+  "locale.english": "English",
+  "locale.polish": "Polski",
+  "locale.help":
+    "Język określa treść interfejsu, region formatowanie, a strefa czasowa wyświetlane godziny.",
+  "locale.saved": "Preferencje dotyczą tej przeglądarki.",
+  "profile.joined": "Dołączono {date}",
+  "profile.message": "Wyślij wiadomość",
+  "profile.about": "O graczu",
+  "profile.noBio": "Ten gracz nie dodał jeszcze opisu.",
+  "profile.notFound": "Nie znaleziono gracza",
+  "profile.block": "Zablokuj gracza",
+  "profile.unblock": "Odblokuj gracza",
+  "profile.report": "Zgłoś gracza",
+  "profile.blocked": "Gracz zablokowany.",
+  "profile.unblocked": "Gracz odblokowany.",
+  "profile.blockHelp": "Blokada uniemożliwia wiadomości w obu kierunkach.",
+  "profile.self": "Edytuj profil",
+  "profile.unavailable": "Ten profil jest niedostępny.",
+  "chat.title": "Wiadomości",
+  "chat.open": "Otwórz wiadomości",
+  "chat.empty": "Tutaj pojawią się Twoje rozmowy.",
+  "chat.start": "Znajdź gracza i rozpocznij rozmowę.",
+  "chat.select": "Wybierz rozmowę",
+  "chat.placeholder": "Napisz wiadomość…",
+  "chat.send": "Wyślij wiadomość",
+  "chat.messageLabel": "Wiadomość",
+  "chat.noMessages": "Przywitaj się i rozpocznij rozmowę.",
+  "chat.unread": "Nieprzeczytane wiadomości: {count}",
+  "chat.previous": "Wczytaj wcześniejsze wiadomości",
+  "chat.blocked": "Wiadomości są niedostępne, gdy aktywna jest blokada.",
+  "chat.you": "Ty",
+  "chat.sending": "Wysyłanie…",
+  "chat.report": "Zgłoś wiadomość",
+  "chat.connection":
+    "Nie udało się odświeżyć wiadomości. Za chwilę spróbujemy ponownie.",
+  "chat.new": "Nowa wiadomość",
+  "chat.markRead": "Oznacz jako przeczytane",
+  "chat.reportHelp":
+    "Zgłoś konkretną wiadomość, aby moderatorzy mogli sprawdzić kontekst.",
+  "notifications.title": "Powiadomienia",
+  "notifications.open": "Otwórz powiadomienia",
+  "notifications.empty": "Nie masz nowych powiadomień.",
+  "notifications.help": "Tutaj pojawią się nowe wiadomości.",
+  "notifications.from": "Nowa wiadomość od: {name}",
+  "notifications.view": "Zobacz rozmowę",
+  "report.title": "Zgłoś gracza",
+  "report.reason": "Powód",
+  "report.details": "Dodatkowe informacje",
+  "report.help":
+    "Opisz moderatorom, co się wydarzyło. Nie podawaj haseł ani prywatnych danych konta.",
+  "report.submit": "Wyślij zgłoszenie",
+  "report.sent": "Zgłoszenie wysłane. Moderatorzy je rozpatrzą.",
+  "report.spam": "Spam",
+  "report.harassment": "Nękanie",
+  "report.threats": "Groźby",
+  "report.other": "Inny",
+  "admin.title": "Administracja",
+  "admin.label": "Moderacja",
+  "admin.users": "Użytkownicy",
+  "admin.reports": "Zgłoszenia",
+  "admin.audit": "Historia działań",
+  "admin.usersHint": "Wyszukuj użytkowników i zarządzaj ograniczeniami kont.",
+  "admin.search": "Szukaj użytkowników",
+  "admin.status": "Status",
+  "admin.active": "Aktywne",
+  "admin.banned": "Zablokowane",
+  "admin.admin": "Administrator",
+  "admin.member": "Gracz",
+  "admin.role": "Rola",
+  "admin.joined": "Dołączono",
+  "admin.ban": "Zablokuj konto",
+  "admin.unban": "Odblokuj konto",
+  "admin.reason": "Powód działania",
+  "admin.banHelp":
+    "Blokada wyloguje użytkownika i uniemożliwi korzystanie z funkcji wymagających logowania.",
+  "admin.confirmBan": "Zablokować {name}?",
+  "admin.confirmUnban": "Odblokować {name}?",
+  "admin.bannedSuccess": "Konto zablokowane.",
+  "admin.unbannedSuccess": "Konto odblokowane.",
+  "admin.noUsers": "Nie znaleziono użytkowników.",
+  "admin.open": "Otwarte",
+  "admin.resolved": "Rozpatrzone",
+  "admin.all": "Wszystkie",
+  "admin.noReports": "Nie ma zgłoszeń do rozpatrzenia.",
+  "admin.reportedBy": "Zgłoszenie od: {name}",
+  "admin.reportedUser": "Zgłoszony gracz",
+  "admin.evidence": "Zgłoszona wiadomość",
+  "admin.resolve": "Rozpatrz zgłoszenie",
+  "admin.resolveNote": "Uzasadnienie rozstrzygnięcia",
+  "admin.resolveHelp": "Zapisz wynik moderacji.",
+  "admin.resolvedSuccess": "Zgłoszenie rozpatrzone.",
+  "admin.noAudit": "Brak działań moderacyjnych.",
+  "admin.actor": "Administrator",
+  "admin.target": "Użytkownik",
+  "admin.action": "Działanie",
+  "admin.date": "Data",
+  "admin.reportDetails": "Szczegóły zgłoszenia",
+  "admin.noAccess": "Nie masz dostępu do tej strony.",
+  "admin.action.user_banned": "Konto zablokowane",
+  "admin.action.user_unbanned": "Konto odblokowane",
+  "admin.action.report_resolved": "Zgłoszenie rozpatrzone",
+  "error.generic": "Coś poszło nie tak. Spróbuj ponownie.",
+  "error.network":
+    "Nie udało się połączyć z CGP. Sprawdź połączenie i spróbuj ponownie.",
+  "error.invalid_request": "Sprawdź wprowadzone dane.",
+  "error.validation_error": "Sprawdź wprowadzone dane.",
+  "error.invalid_credentials":
+    "Nazwa użytkownika, e-mail lub hasło są nieprawidłowe.",
+  "error.username_taken": "Ta nazwa użytkownika jest już zajęta.",
+  "error.email_taken": "Ten adres e-mail jest już używany.",
+  "error.account_exists": "Konto o tej nazwie lub adresie e-mail już istnieje.",
+  "error.unauthorized": "Zaloguj się, aby kontynuować.",
+  "error.forbidden": "Nie masz uprawnień do tej operacji.",
+  "error.not_found": "Nie znaleziono żądanego elementu.",
+  "error.rate_limited": "Zbyt wiele żądań. Odczekaj i spróbuj ponownie.",
+  "error.account_banned": "To konto jest zablokowane.",
+  "error.banned": "To konto jest zablokowane.",
+  "error.chat_blocked": "Wiadomości są niedostępne, gdy aktywna jest blokada.",
+  "error.blocked": "Wiadomości są niedostępne, gdy aktywna jest blokada.",
+  "error.password_incorrect": "Obecne hasło jest nieprawidłowe.",
+  "error.invalid_password": "Obecne hasło jest nieprawidłowe.",
+  "error.csrf": "Sesja wymaga odświeżenia. Odśwież stronę i spróbuj ponownie.",
+  "error.conflict":
+    "Ta operacja jest sprzeczna z ostatnią zmianą. Odśwież i spróbuj ponownie.",
+  "error.message_too_long": "Wiadomość jest zbyt długa.",
+  "error.self_conversation": "Wybierz innego gracza, aby rozpocząć rozmowę.",
+  "error.self_action": "Ta operacja jest niedostępna dla własnego konta.",
+  "error.admin_protected":
+    "Moderacja kont administratorów wymaga ręcznej zmiany w bazie.",
+  "error.unavailable": "Ta operacja jest obecnie niedostępna.",
+};
+
+export type MessageKey = keyof typeof en;
+export type Preferences = {
+  language: "" | "en" | "pl";
+  region: string;
+  timeZone: string;
+};
+type LocaleContext = {
+  t: (key: MessageKey, values?: Record<string, string | number>) => string;
+  language: "en" | "pl";
+  locale: string;
+  preferences: Preferences;
+  setPreferences: (value: Preferences) => void;
+  date: (
+    value: string | number,
+    options?: Intl.DateTimeFormatOptions,
+  ) => string;
+  number: (value: number) => string;
+};
+const Context = createContext<LocaleContext>(null!);
+const empty: Preferences = { language: "", region: "", timeZone: "" };
+
+function readPreferences(): Preferences {
+  try {
+    const stored = JSON.parse(
+      localStorage.getItem("cgp.preferences") || "null",
+    );
+    if (!stored) return empty;
+    return {
+      language: ["en", "pl"].includes(stored.language) ? stored.language : "",
+      region: /^[A-Z]{2}$/.test(stored.region) ? stored.region : "",
+      timeZone: typeof stored.timeZone === "string" ? stored.timeZone : "",
+    };
+  } catch {
+    return empty;
+  }
+}
+
+export function LocaleProvider({ children }: { children: ReactNode }) {
+  const [preferences, updatePreferences] = useState(readPreferences);
+  const setPreferences = useCallback((next: Preferences) => {
+    updatePreferences((current) =>
+      current.language === next.language &&
+      current.region === next.region &&
+      current.timeZone === next.timeZone
+        ? current
+        : next,
+    );
+    try {
+      localStorage.setItem("cgp.preferences", JSON.stringify(next));
+    } catch {
+      return;
+    }
+  }, []);
+  const detected = useMemo(() => {
+    try {
+      return new Intl.Locale(navigator.languages[0] || "en-GB").maximize();
+    } catch {
+      return new Intl.Locale("en-GB");
+    }
+  }, []);
+  const region = preferences.region || detected.region || "GB";
+  const language =
+    preferences.language || (detected.language === "pl" ? "pl" : "en");
+  const locale = `${language}-${region}`;
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.title = "CGP";
+  }, [language]);
+  const value = useMemo<LocaleContext>(
+    () => ({
+      language,
+      locale,
+      preferences,
+      t: (key, values) => {
+        const catalog: Record<string, string> = language === "pl" ? pl : en;
+        const plural = new Intl.PluralRules(language).select(
+          Number(values?.count),
+        );
+        const pluralForms =
+          language === "pl"
+            ? {
+                "search.count": {
+                  one: "{count} gracz",
+                  few: "{count} graczy",
+                  many: "{count} graczy",
+                  other: "{count} gracza",
+                },
+                "chat.unread": {
+                  one: "{count} nieprzeczytana wiadomość",
+                  few: "{count} nieprzeczytane wiadomości",
+                  many: "{count} nieprzeczytanych wiadomości",
+                  other: "{count} nieprzeczytanej wiadomości",
+                },
+              }
+            : {
+                "search.count": {
+                  one: "{count} player",
+                  few: "{count} players",
+                  many: "{count} players",
+                  other: "{count} players",
+                },
+                "chat.unread": {
+                  one: "{count} unread message",
+                  few: "{count} unread messages",
+                  many: "{count} unread messages",
+                  other: "{count} unread messages",
+                },
+              };
+        const template =
+          key === "search.count" || key === "chat.unread"
+            ? pluralForms[key][plural as "one" | "few" | "many" | "other"] ||
+              pluralForms[key].other
+            : catalog[key] || en[key] || en["error.generic"];
+        return template.replace(/\{(\w+)\}/g, (_, name: string) =>
+          typeof values?.[name] === "number"
+            ? new Intl.NumberFormat(locale).format(values[name])
+            : String(values?.[name] ?? `{${name}}`),
+        );
+      },
+      setPreferences,
+      date: (input, options = {}) => {
+        const timestamp =
+          typeof input === "string" && /^\d+$/.test(input)
+            ? Number(input)
+            : input;
+        const parsed =
+          typeof timestamp === "number" && timestamp < 100000000000
+            ? timestamp * 1000
+            : timestamp;
+        try {
+          return new Intl.DateTimeFormat(locale, {
+            dateStyle: "medium",
+            ...(preferences.timeZone ? { timeZone: preferences.timeZone } : {}),
+            ...options,
+          }).format(new Date(parsed));
+        } catch {
+          return "";
+        }
+      },
+      number: (input) => new Intl.NumberFormat(locale).format(input),
+    }),
+    [language, locale, preferences, setPreferences],
+  );
+  return <Context.Provider value={value}>{children}</Context.Provider>;
+}
+
+export function useLocale() {
+  return useContext(Context);
+}
+export function errorKey(code?: string): MessageKey {
+  const aliases: Record<string, MessageKey> = {
+    invalid_input: "error.invalid_request",
+    invalid_json: "error.invalid_request",
+    account_unavailable: "error.account_exists",
+    unauthenticated: "error.unauthorized",
+    auth_required: "error.unauthorized",
+    csrf_invalid: "error.csrf",
+    origin_denied: "error.forbidden",
+    payload_too_large: "error.message_too_long",
+    unsupported_media_type: "error.invalid_request",
+    service_unavailable: "error.unavailable",
+    configuration_error: "error.unavailable",
+    internal_error: "error.generic",
+    not_found: "error.not_found",
+  };
+  const normalized = code?.toLowerCase() || "";
+  if (normalized in aliases) return aliases[normalized];
+  const key = `error.${normalized}`;
+  return key in en ? (key as MessageKey) : "error.generic";
+}

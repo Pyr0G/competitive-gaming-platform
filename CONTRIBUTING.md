@@ -1,43 +1,45 @@
 # Contributing to CGP
 
-CGP is being rebuilt as a new React application with SQLite storage and hosting entirely on Cloudflare. The new program stays in this repository. The previous application is preserved under [`prototype/`](prototype/) for reference, with limited reuse expected.
+CGP uses React, TypeScript, and SQLite through local Cloudflare Workers and D1 tooling. Development stays local; hosted configuration and deployment require a separate release decision.
 
-Read the [project status](README.md), [rebuild notes](docs/REBUILD.md), [working rules](AGENTS.md), and [security policy](SECURITY.md) before making changes. The new application has no runnable source or development commands yet.
+Read the [README](README.md), [architecture](docs/ARCHITECTURE.md), [working rules](AGENTS.md), and [security policy](SECURITY.md) first.
 
 ## Discuss a change
 
-Check existing issues and pull requests before opening an issue. State whether your report concerns the rebuild or the prototype, and include the relevant commit. Use the [bug report](.github/ISSUE_TEMPLATE/bug_report.md) or [feature request](.github/ISSUE_TEMPLATE/feature_request.md) template.
+Describe the player or moderator problem and observable acceptance criteria. Identify the affected component and version. Keep future functionality distinct from working behavior.
 
-For bugs, provide reproduction steps, expected and actual behavior, and a sanitized example. For features, describe the player's or organizer's problem and observable acceptance criteria. Discuss substantial workflow changes and integrations before implementing them.
+Use issue and pull request templates for ordinary changes. Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
 
-Report security vulnerabilities privately using [SECURITY.md](SECURITY.md). Remove credentials, session cookies, activation/reset links, personal data, private addresses, and environment-specific infrastructure details from shared material.
+## Implementation rules
 
-## Make focused changes
+- Keep code simple and readable, without code comments. Use TypeScript, focused components, and explicit interfaces.
+- Centralize reusable styles, design tokens, typography, and shared controls.
+- Keep application copy and accessible labels in shared English and Polish catalogs, with English fallback. Keep language, regional formatting, and time zones separate.
+- Enforce validation, authentication, authorization, request limits, and private-data boundaries on the server. Client route protection does not grant access.
+- Use prepared SQL and versioned migrations. Do not mutate schemas or seed users on startup.
+- Keep administrator grants and revocations outside public APIs and the interface; document direct local SQL where needed.
+- Keep maintained documentation in English. Use small commits with English messages prefixed by `frontend:`, `backend:`, `database:`, or `docs:`.
 
-- Keep new CGP source in this repository, alongside the preserved prototype.
-- Use the prototype to evaluate specific behavior or assets for reuse. Its framework, schema, and deployment model do not define the new architecture.
-- Keep code simple and readable, without code comments.
-- Keep maintained documentation in English and application copy in shared English and Polish catalogs.
-- Update setup and behavior documentation with the implementation, and distinguish planned features from working flows.
-- Use small commits with English messages prefixed by `frontend:`, `backend:`, `database:`, or `docs:`.
+## Validate changes
 
-## Validate a change
-
-For documentation, check formatting, links, section anchors, and commands. Include the checks performed and any unverified behavior in the pull request.
-
-The prototype can be reproduced using [its setup guide](prototype/README.md#run-locally). From the repository root, its tests run with:
+Use Node.js 24 or newer and pnpm 11.25.0. Follow [local testing](docs/LOCAL_TESTING.md) for setup, isolation, and browser checks.
 
 ```sh
-npm ci --prefix prototype/backend --ignore-scripts
-npm test --prefix prototype/backend
+pnpm install --frozen-lockfile
+pnpm check
+pnpm test:e2e
 ```
 
-Run that suite for changes to prototype code or paths. Follow [prototype/CONTRIBUTING.md](prototype/CONTRIBUTING.md) for browser checks and database validation when changing the reference application. The suite does not verify database upgrades, backup restoration, or a live deployment.
+Install Playwright Chromium before the first browser run. Include checks, results, and unverified behavior in the pull request. Inspect desktop and mobile layouts, keyboard navigation, relevant account states, and both languages for interface changes. Verify fresh storage and applicable migrations using disposable data for schema changes.
 
-New application work must include the development and validation commands appropriate to its actual implementation. Prototype test results do not establish correctness of the new program.
+Run Codex Security after implementation changes, fix validated vulnerabilities, and review the resulting security fixes. Include the reviewed scope and results without publishing exploit details or private evidence. Tests and scans do not prove that every vulnerability is absent.
 
-## Submit a pull request
+For documentation, check formatting, links, anchors, and commands against the repository. Do not invent release or hosted setup commands.
 
-Use the [pull request template](.github/pull_request_template.md). Explain the concrete problem, resulting behavior, scope, and validation. Identify whether the change affects the rebuild, the prototype, or documentation. Include screenshots for visual changes and describe database or deployment steps when applicable.
+Local checks do not validate hosting or production restoration.
 
-Use generic application examples in public output. Private operator records and infrastructure details belong outside the repository.
+## Public content
+
+Use generic domains, immutable-ID placeholders, and synthetic accounts. Review code, documentation, templates, screenshots, logs, commit messages, and proposed history for credentials, tokens, personal data, private addresses, infrastructure topology, machine or account identifiers, and deployment-specific paths.
+
+Keep operator records outside the public repository. Do not include real session cookies, messages, passwords, or private reports in issues or test evidence.

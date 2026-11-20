@@ -1,6 +1,6 @@
 ---
 name: Bug report
-about: Report a reproducible problem in CGP or its preserved prototype
+about: Report a reproducible problem in CGP
 title: ''
 labels: ''
 assignees: ''
@@ -8,7 +8,7 @@ assignees: ''
 
 ## Component and version
 
-State whether this concerns the rebuild or `prototype/`. Include the branch or commit and relevant browser/runtime versions. For the prototype, say whether the backend was running or the page used demo mode.
+Identify the affected component, branch or commit, and relevant browser/runtime versions. State whether this occurs in development or built local preview.
 
 ## Reproduction
 

@@ -8,7 +8,7 @@ assignees: ''
 
 ## Player or organizer problem
 
-Describe who needs the change and what they are trying to do. State whether the request concerns the new application or the prototype reference.
+Describe who needs the change and what they are trying to do.
 
 ## Proposed behavior
 

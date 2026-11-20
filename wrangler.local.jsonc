@@ -1,0 +1,30 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "cgp-local",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-11-19",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "preview_urls": false,
+  "assets": {
+    "directory": "./dist/client",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": true,
+  },
+  "dev": { "ip": "127.0.0.1", "port": 5173 },
+  "vars": { "LOCAL_DEV": "true" },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cgp-local",
+      "database_id": "local-only",
+      "migrations_dir": "migrations",
+      "remote": false,
+    },
+  ],
+  "durable_objects": {
+    "bindings": [{ "name": "PASSWORD_HASHER", "class_name": "PasswordHasher" }],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["PasswordHasher"] }],
+}

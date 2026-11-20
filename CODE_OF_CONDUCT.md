@@ -1,4 +1,4 @@
-# Code of Conduct
+# CGP Code of Conduct
 
 CGP brings together people who want to build a better experience for CS2 players. Everyone taking part should be able to contribute, ask questions, and disagree without being targeted or intimidated.
 
