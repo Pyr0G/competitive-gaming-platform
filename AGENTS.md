@@ -4,7 +4,7 @@
 
 CGP is a React and TypeScript application with a Worker API and SQLite storage through D1. The initial version supports accounts, public profiles, player search, private text chat, blocking, message reports, and basic moderation. The home content area is empty; future sidebar entries do not implement their features.
 
-Work only on the local application until hosting is explicitly requested. `wrangler.local.jsonc` exists for offline runtime and storage simulation. Do not log in to Cloudflare, create remote resources, configure domains, or deploy as part of local development.
+Version 0.1.0 has an initial Cloudflare deployment. Default to local development; hosted changes require explicit authorization. `wrangler.local.jsonc` exists for offline runtime and storage simulation. Do not log in to Cloudflare, create remote resources, configure domains, or deploy as part of ordinary local development. Keep production identifiers and credentials outside version control.
 
 ## Read first
 

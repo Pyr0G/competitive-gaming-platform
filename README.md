@@ -1,6 +1,6 @@
 # CGP
 
-CGP is a Counter-Strike 2 community application built with React, TypeScript, and SQLite. This initial version runs locally using Cloudflare's Workers runtime, local D1 storage, and a private password-hashing Durable Object. No hosted release is configured or verified.
+CGP is a Counter-Strike 2 community application built with React, TypeScript, and SQLite. Version 0.1.0 runs on Cloudflare Workers with D1 storage and a private password-hashing Durable Object. Local development uses the same runtime interfaces with isolated local storage. See [deployment status](docs/DEPLOYMENT.md) for hosted checks and their limits.
 
 ## Available features
 

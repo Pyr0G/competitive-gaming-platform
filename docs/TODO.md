@@ -8,9 +8,12 @@ Accounts, username-or-email sign-in, persistent sessions, basic public profiles,
 
 Registration continues to require username, private email, password, and confirmation. Administrator access remains assignable only through manual database interaction. The early brief's alternative account model and implementation suggestions do not replace these current requirements.
 
+An initial Cloudflare deployment was completed on 2026-11-21 and passed representative hosted checks; see [deployment status](DEPLOYMENT.md). The release branch below also tracks remaining operational acceptance work, including sustained capacity, monitoring, and recovery with representative data.
+
 ## Reading the tree
 
 - `[ ]` means outstanding work. Mark a task complete only when its own outcome and validation are complete.
+- `[x]` means the stated task is complete; its dependent tasks can still be outstanding.
 - Group labels use `/`. A task indented beneath another task depends on that parent task being complete. Children are follow-on work, not a claim that their parent already implements them.
 - `requires: ID` records an additional dependency in another branch. Siblings can proceed independently unless a dependency says otherwise. IDs remain stable when tasks move.
 - `[Brief]` identifies requirements from the original brief. `[CGP]` identifies follow-up work from current CGP scope. `[Proposal]` identifies a suggested addition to review. Tasks beginning with `Decide` leave that product choice open.
@@ -21,9 +24,9 @@ Registration continues to require username, private email, password, and confirm
 ```text
 CGP/
 |-- Initial release of the current application/ [CGP]
-|   `-- [ ] REL-01 Record the approved release scope and exact revision; use DEPLOYMENT.md for release requirements.
-|       |-- [ ] REL-02 Prepare the approved hosted environment, origin, private configuration, and service bindings.
-|       |   |-- [ ] REL-03 Rehearse fresh migrations and an upgrade with existing messages, sessions, and read positions.
+|   `-- [x] REL-01 Record the approved release scope and exact revision: CGP 0.1.0, commit 3d8baf2; use DEPLOYMENT.md for release requirements.
+|       |-- [x] REL-02 Prepare the approved hosted environment, origin, private configuration, and service bindings.
+|       |   |-- [x] REL-03 Rehearse fresh migrations and an upgrade with existing messages, sessions, and read positions; fresh hosted migrations and local existing-data upgrade checks passed.
 |       |   |   `-- [ ] REL-04 Verify backup restoration and document application/data rollback and migration recovery.
 |       |   |-- [ ] REL-05 Check hosted account, search, chat, report, and moderation flows using separate test accounts.
 |       |   |   |-- [ ] REL-06 Verify real HTTPS cookies, origin/CSRF enforcement, asset headers, and failure behavior.
@@ -31,7 +34,7 @@ CGP/
 |       |   `-- [ ] REL-08 Establish service-health checks and useful error reporting that exclude credentials and private messages.
 |       |-- [ ] REL-09 Review staged files, public documentation, templates, and release evidence for private information.
 |       |-- [ ] REL-10 Run dependency checks and Codex Security on the release revision; fix and review validated findings.
-|       `-- [ ] REL-11 Publish the approved release and run a post-release smoke test. (requires: REL-04, REL-06, REL-07, REL-08, REL-09, REL-10)
+|       `-- [ ] REL-11 Close the full operational release checklist and repeat post-release checks; the initial deployment and smoke checks are complete. (requires: REL-04, REL-06, REL-07, REL-08, REL-09, REL-10)
 |           `-- [ ] REL-12 Collect feedback from initial players and prioritize confirmed usability and reliability issues.
 |
 |-- Gaming profiles and FACEIT identity/ [Brief sections 3, 8, 11]

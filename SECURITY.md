@@ -10,7 +10,7 @@ Do not attach real passwords, session cookies, other people's messages or email 
 
 ## Application boundaries
 
-CGP currently runs locally with a React interface, Worker API, and SQLite storage. No hosted release is configured or verified.
+CGP has a React interface, Worker API, and SQLite storage. Version 0.1.0 has an initial Cloudflare deployment and local development tooling. Hosted checks and their limits are recorded in [deployment status](docs/DEPLOYMENT.md). Production testing requires explicit authorization.
 
 Review authentication, hashing, session issuance and revocation, CSRF and origins, input bounds, prepared SQL, request limits, authorization, participant-only messages, blocks, report evidence, administrative actions, dependencies, and accidental private-data disclosure.
 

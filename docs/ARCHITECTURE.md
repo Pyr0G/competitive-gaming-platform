@@ -2,7 +2,7 @@
 
 ## Runtime and source boundaries
 
-CGP consists of a React and TypeScript interface, a Hono Worker API, and SQLite application data through D1. Vite and the Cloudflare plugin run the interface and API on one local origin. The runtime interfaces support later Cloudflare hosting; hosted resources and release configuration are deferred.
+CGP consists of a React and TypeScript interface, a Hono Worker API, and SQLite application data through D1. Vite and the Cloudflare plugin run the interface and API on one local origin. Version 0.1.0 is also deployed using hosted Workers, D1, and the private hashing Durable Object. Local and hosted bindings are separate; production configuration is maintained outside version control.
 
 | Area | Responsibility |
 | --- | --- |
@@ -48,7 +48,7 @@ One conversation exists per unordered pair of different players. Every conversat
 
 Blocking prevents sending in both directions. A player may report a received message from their own conversation. A report captures that message and up to five preceding messages. Authorized administrators can review this bounded evidence; no administrator endpoint browses arbitrary chat history. Messages are stored as server-readable text; chat is not end-to-end encrypted.
 
-The administrator API searches users, bans or unbans non-administrator accounts, reviews and resolves reports, and lists moderation actions. It rejects self-moderation and protects administrator accounts from the moderation interface. Successful actions record actor, target, reason, and time. Administrator grants and revocations require [direct local SQL](LOCAL_TESTING.md#administrator-access).
+The administrator API searches users, bans or unbans non-administrator accounts, reviews and resolves reports, and lists moderation actions. It rejects self-moderation and protects administrator accounts from the moderation interface. Successful actions record actor, target, reason, and time. Administrator grants and revocations require direct database interaction: [local SQL](LOCAL_TESTING.md#administrator-access) for development or the explicit hosted operator workflow in [deployment guidance](DEPLOYMENT.md#hosted-administrator-access).
 
 Chat synchronization uses non-overlapping polling, pauses when the document is hidden, and backs off after failures. Notifications summarize unread conversations. Inbox and history responses are bounded; traffic and row-read usage need verification against future hosted quotas.
 
