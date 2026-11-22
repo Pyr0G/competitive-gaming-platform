@@ -256,6 +256,29 @@ test("creates an account through the interface and saves public profile changes"
     }),
   ).toBeVisible();
   expect(await page.evaluate(() => "bad" in window)).toBe(false);
+  await expect(
+    page.getByText("This player has not added gaming details yet."),
+  ).toBeVisible();
+  await page.goto("/account");
+  await page.getByLabel("Main CS2 role").selectOption("igl");
+  await page.getByLabel("FACEIT level").selectOption("7");
+  await page.getByRole("checkbox", { name: "Evenings" }).check();
+  await page.getByRole("checkbox", { name: "Polish" }).check();
+  await page.getByRole("checkbox", { name: "English" }).check();
+  await page
+    .getByRole("button", { name: "Save gaming profile", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Gaming profile saved.");
+  await page.goto(`/players/${auth.account!.id}`);
+  const gaming = page.locator(".profile-gaming");
+  await expect(gaming).toContainText("Self-declared");
+  await expect(gaming).toContainText("In-game leader");
+  await expect(gaming).toContainText("Evenings");
+  await expect(gaming.locator(".gaming-tags span")).toHaveText([
+    "Evenings",
+    "English",
+    "Polish",
+  ]);
   await page.screenshot({ path: info.outputPath("profile.png") });
 });
 
