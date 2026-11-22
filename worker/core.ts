@@ -5,7 +5,12 @@ import { deleteCookie, getCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import type { ZodType } from "zod";
-import type { Account, Player } from "../shared/contracts";
+import {
+  availabilityTimes,
+  gamingRoles,
+  spokenLanguages,
+} from "../shared/contracts";
+import type { Account, GamingProfile, Player } from "../shared/contracts";
 import type { PasswordHasher } from "./passwords";
 
 export interface Bindings {
@@ -31,7 +36,16 @@ export interface UserRow {
   banned_at: string | null;
   ban_reason: string | null;
   created_at: string;
+  game_role: string | null;
+  game_level: number | null;
+  availability: string;
+  spoken_languages: string;
 }
+
+export type GamingRow = Pick<
+  UserRow,
+  "game_role" | "game_level" | "availability" | "spoken_languages"
+>;
 
 export interface SessionRow {
   token_hash: string;
@@ -64,6 +78,29 @@ export function toPlayer(
   };
 }
 
+function knownValues<T extends string>(
+  stored: string,
+  allowed: readonly T[],
+): T[] {
+  try {
+    const values: unknown = JSON.parse(stored);
+    return Array.isArray(values)
+      ? allowed.filter((value) => values.includes(value))
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+export function toGaming(row: GamingRow): GamingProfile {
+  return {
+    role: gamingRoles.find((role) => role === row.game_role) ?? null,
+    level: row.game_level,
+    availability: knownValues(row.availability, availabilityTimes),
+    languages: knownValues(row.spoken_languages, spokenLanguages),
+  };
+}
+
 export function toAccount(row: UserRow): Account {
   return {
     ...toPlayer(row),
@@ -72,6 +109,7 @@ export function toAccount(row: UserRow): Account {
     locale: row.locale,
     timeZone: row.time_zone,
     isAdmin: row.is_admin === 1,
+    gaming: toGaming(row),
   };
 }
 
