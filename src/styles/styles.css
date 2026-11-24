@@ -549,8 +549,188 @@ svg {
   flex-basis: 100%;
   font-size: 11px;
 }
-.empty-home {
-  background: var(--bg);
+.home-page {
+  display: grid;
+  gap: 28px;
+}
+.home-hero {
+  padding: 36px 40px;
+  background:
+    linear-gradient(135deg, #182433 0%, #101821 55%, #0f1923 100%),
+    var(--surface);
+}
+.home-hero-copy {
+  max-width: 640px;
+  display: grid;
+  gap: 16px;
+}
+.home-hero h1 {
+  font-size: clamp(28px, 4vw, 40px);
+  line-height: 1.15;
+}
+.home-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block-start: 8px;
+}
+.home-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block-end: 22px;
+}
+.home-section-header h2 {
+  margin-block-end: 6px;
+}
+.home-news-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 20px;
+}
+.home-news-featured,
+.home-news-list > article,
+.home-news-empty,
+.ready-grid > article {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--deep);
+  padding: 20px 22px;
+}
+.home-news-featured {
+  min-height: 220px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.home-news-featured h3 {
+  font-size: 24px;
+}
+.home-news-list {
+  display: grid;
+  gap: 12px;
+}
+.home-news-list h4 {
+  margin-block: 6px 8px;
+  font-size: 16px;
+}
+.home-news-empty {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+  padding: 48px 24px;
+}
+.home-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.home-shortcut {
+  display: grid;
+  gap: 10px;
+  padding: 20px;
+  transition:
+    border-color 140ms,
+    background 140ms;
+}
+.home-shortcut:hover {
+  border-color: #597083;
+  background: var(--surface-raised);
+}
+.home-shortcut small {
+  color: var(--muted);
+}
+.section-page .section-description {
+  margin-block: 8px 24px;
+  max-width: 640px;
+}
+.section-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-block-end: 20px;
+}
+.entity-list {
+  display: grid;
+  gap: 10px;
+}
+.entity-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--deep);
+  min-width: 0;
+}
+.entity-card:hover {
+  border-color: #597083;
+}
+.entity-card strong {
+  display: block;
+}
+.entity-card small {
+  color: var(--muted);
+}
+.team-tag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 52px;
+  padding: 8px 10px;
+  border-radius: var(--radius-small);
+  background: #ff465514;
+  border: 1px solid #ff465540;
+  color: var(--accent-hover);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+.team-tag.large {
+  min-width: 72px;
+  font-size: 18px;
+  padding: 14px 16px;
+}
+.team-header {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin-block-end: 28px;
+}
+.ready-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  width: min(100%, 820px);
+  margin-block: 8px 18px;
+  text-align: start;
+}
+.ready-grid h4 {
+  margin-block-end: 8px;
+}
+.filter-bar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-block-end: 22px;
+}
+.filter-bar label {
+  display: grid;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.rankings-select {
+  margin-block-end: 18px;
+}
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 .mobile-menu {
   display: none;
@@ -1829,6 +2009,12 @@ tbody tr:last-child td {
   .chat-layout {
     grid-template-columns: 260px minmax(0, 1fr);
   }
+  .home-news-grid,
+  .home-shortcuts,
+  .ready-grid,
+  .filter-bar {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 @media (max-width: 900px) {
   :root {
@@ -1910,6 +2096,22 @@ tbody tr:last-child td {
   }
 }
 @media (max-width: 700px) {
+  .home-hero {
+    padding: 28px 22px;
+  }
+  .home-news-grid,
+  .home-shortcuts,
+  .ready-grid,
+  .filter-bar,
+  .section-toolbar {
+    grid-template-columns: 1fr;
+  }
+  .section-toolbar {
+    display: grid;
+  }
+  .home-shortcuts {
+    grid-template-columns: 1fr 1fr;
+  }
   :root {
     --sidebar: 0px;
     --topbar: 68px;

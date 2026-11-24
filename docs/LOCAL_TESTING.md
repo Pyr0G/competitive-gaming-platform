@@ -68,7 +68,7 @@ Results apply to the tested revision and local configuration. Local tooling does
 Use two browser profiles or a regular window and a private window so cookies stay separate. Use synthetic usernames and email addresses such as `player-one@example.com`; do not share real credentials or messages in evidence.
 
 1. Create a different account in each window. Confirm both are active immediately and can sign out and sign back in using username or email.
-2. Check that home content is empty, the shared shell stays visible, and future navigation does not pretend to implement its features.
+2. Check that home shows the updates panel and section shortcuts. Open Tournaments, Teams, Recruitment and Rankings from the sidebar. Guide remains a separate preview.
 3. Change English/Polish language, region, and time zone. Check labels and dates. Update username and bio, reload, and confirm persistence. Email stays private and read-only. Set a CS2 role, FACEIT level, availability, and spoken languages, save the gaming profile, and confirm the other window sees them as self-declared on the public profile. A sixth spoken language cannot be selected.
 4. Search for the other username, open its profile, and start a conversation. Send messages both ways, reload, and confirm history. Check top-bar unread counts and chat notifications in the receiving window.
 5. Open the receiving conversation and confirm its unread count clears. Check earlier history when enough messages exist. A failed send should retain the draft and permit retry.
@@ -79,7 +79,7 @@ Use two browser profiles or a regular window and a private window so cookies sta
 10. Repeat key flows at mobile width, with keyboard navigation, and in both languages. Check dialog focus, readable errors, long Unicode names, and messages.
 11. Open Guide below Rankings in the sidebar or mobile navigation. Check the six numbered sections and final recruitment call to action. Watch and manually select the four How it works steps; check pause, hover/focus suspension, viewport suspension, and reduced motion. Filter tournament cards by status, open registered teams and roster dialogs, and select bracket matches. Test recruitment role, level, and availability filters, the empty state, conversation preview, and listing form preview. In the result form, try an invalid link, use the example link, and simulate a result: confirm the winner advances and standings update only on this page. Reusing a reference must be rejected. Reset tournament examples and confirm the original bracket and statistics return. Complete a BO3 veto, switch to BO1, try auto-complete, and reset during selection; check distinct teams, history, and map order. Repeat at narrow mobile widths, with keyboard navigation and in Polish. Only the bracket and standings may scroll horizontally at narrow widths. Reload or leave the Guide to clear examples. No preview action should create records or fetch a real match. The home content area must remain empty.
 
-Email verification, recovery, attachments, team management, tournaments, recruitment, rankings, and map veto have no live workflow in this version. The Guide presents illustrative previews of future features.
+Email verification, recovery, attachments, invitations, tournament registration, live recruitment ads, rankings data, and map veto have no live workflow yet. Team creation and home updates do. The Guide still presents illustrative previews of later competition flows.
 
 ## Administrator access
 

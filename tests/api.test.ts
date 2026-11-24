@@ -16,9 +16,14 @@ import type {
   Message,
   Player,
   PlayerResponse,
+  Post,
+  PostsResponse,
   Report,
   SearchResponse,
   SyncResponse,
+  TeamDetails,
+  TeamSummary,
+  TeamsResponse,
 } from "../shared/contracts";
 
 const origin = "http://127.0.0.1";
@@ -1124,5 +1129,83 @@ describe("private conversations and moderation", () => {
     expect(
       (await request("/passwords/hash", "POST", { password })).status,
     ).toBe(404);
+  });
+});
+
+describe("home posts and teams", () => {
+  it("lets administrators publish updates for the public home feed", async () => {
+    const admin = await register("NewsAdmin");
+    await grantAdmin(admin);
+    const player = await register("NewsReader");
+    expect((await request("/posts")).status).toBe(200);
+    expect(
+      (
+        await request(
+          "/admin/posts",
+          "POST",
+          { title: "Season update", body: "Registration opens next week." },
+          player,
+        )
+      ).status,
+    ).toBe(403);
+    const created = await request(
+      "/admin/posts",
+      "POST",
+      { title: "Season update", body: "Registration opens next week." },
+      admin,
+    );
+    expect(created.status).toBe(201);
+    const post = ((await created.json()) as { post: Post }).post;
+    expect(post.title).toBe("Season update");
+    const feed = (await (await request("/posts")).json()) as PostsResponse;
+    expect(feed.posts.map((item) => item.id)).toContain(post.id);
+    expect(
+      (
+        await request(
+          `/admin/posts/${post.id}`,
+          "PATCH",
+          { title: "Season update", body: "Registration is open." },
+          admin,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (await request(`/admin/posts/${post.id}`, "DELETE", undefined, admin))
+        .status,
+    ).toBe(200);
+    expect(
+      ((await (await request("/posts")).json()) as PostsResponse).posts,
+    ).toEqual([]);
+  });
+
+  it("creates a team with the founder as captain and rejects duplicate tags", async () => {
+    const captain = await register("TeamCaptain");
+    const created = await request(
+      "/teams",
+      "POST",
+      { name: "Nova Five", tag: "NOVA" },
+      captain,
+    );
+    expect(created.status).toBe(201);
+    const team = ((await created.json()) as { team: TeamSummary }).team;
+    expect(team.tag).toBe("NOVA");
+    expect(team.captainId).toBe(captain.account.id);
+    expect(team.memberCount).toBe(1);
+    const details = (await (await request(`/teams/${team.id}`)).json()) as {
+      team: TeamDetails;
+    };
+    expect(details.team.members[0]?.role).toBe("captain");
+    expect(
+      (
+        await request(
+          "/teams",
+          "POST",
+          { name: "Other Squad", tag: "nova" },
+          captain,
+        )
+      ).status,
+    ).toBe(409);
+    const list = (await (await request("/teams")).json()) as TeamsResponse;
+    expect(list.teams.map((item) => item.id)).toContain(team.id);
   });
 });

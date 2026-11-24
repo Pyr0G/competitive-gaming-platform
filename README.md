@@ -7,6 +7,7 @@ CGP is a Counter-Strike 2 community application built with React, TypeScript, an
 - A responsive shell with shared styling, a sidebar, player search, message notifications, chat, language controls, and account access. The home content area is intentionally empty.
 - Registration, username-or-email sign-in, sign-out, public profiles, profile editing, password changes, and language, region, and time-zone preferences.
 - Self-declared gaming profiles with CS2 role, FACEIT level, availability, and spoken languages shown on public profiles.
+- Home updates managed by administrators, team creation and public team pages, plus ready shells for tournaments, recruitment and rankings.
 - Private one-to-one text conversations, unread counts, message history, blocking, and message reporting.
 - An administrator panel for user search, bans and unbans, report review, report resolution, and moderation history. Administrator access is assigned only through direct database changes.
 - Shared English and Polish copy, English fallback, and locale-aware dates and numbers.
