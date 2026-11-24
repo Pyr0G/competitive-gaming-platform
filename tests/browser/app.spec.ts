@@ -282,6 +282,65 @@ test("creates an account through the interface and saves public profile changes"
   await page.screenshot({ path: info.outputPath("profile.png") });
 });
 
+test("disables all gaming profile controls while a save is pending", async ({
+  browser,
+}) => {
+  const user = await createUser(browser, "GamingSavePlayer");
+  const { page, context } = user;
+  let releaseSave: () => void = () => {};
+  let saveStarted: () => void = () => {};
+  const held = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    saveStarted = resolve;
+  });
+  try {
+    await page.goto("/account");
+    const form = page.locator(".gaming-panel");
+    const role = form.getByLabel("Main CS2 role");
+    const level = form.getByLabel("FACEIT level");
+    await role.selectOption("igl");
+    await level.selectOption("7");
+    await form.getByRole("checkbox", { name: "Evenings" }).check();
+    await form.getByRole("checkbox", { name: "Polish" }).check();
+    await page.route("**/api/account/gaming", async (route) => {
+      const response = await route.fetch();
+      saveStarted();
+      await held;
+      await route.fulfill({ response });
+    });
+    await form.getByRole("button", { name: "Save gaming profile" }).click();
+    await started;
+    await expect(role).toBeDisabled();
+    await expect(level).toBeDisabled();
+    for (const checkbox of await form.getByRole("checkbox").all()) {
+      await expect(checkbox).toBeDisabled();
+    }
+    await expect(form.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    releaseSave();
+    await expect(form.getByRole("status")).toHaveText("Gaming profile saved.");
+    await expect(role).toBeEnabled();
+    await expect(role).toHaveValue("igl");
+    await expect(level).toBeEnabled();
+    await expect(level).toHaveValue("7");
+    await expect(
+      form.getByRole("checkbox", { name: "Evenings" }),
+    ).toBeChecked();
+    await expect(
+      form.getByRole("checkbox", { name: "Evenings" }),
+    ).toBeEnabled();
+    await expect(form.getByRole("checkbox", { name: "Polish" })).toBeChecked();
+    await expect(form.getByRole("checkbox", { name: "Polish" })).toBeEnabled();
+    await expect(
+      form.getByRole("button", { name: "Save gaming profile" }),
+    ).toBeEnabled();
+  } finally {
+    releaseSave();
+    await context.close();
+  }
+});
+
 test("clears old account state across tabs and ignores a save response arriving after logout", async ({
   browser,
 }) => {

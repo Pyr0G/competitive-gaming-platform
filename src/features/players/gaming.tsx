@@ -64,6 +64,7 @@ export function GamingProfileForm() {
           {t("gaming.role")}
           <select
             value={gaming.role ?? ""}
+            disabled={action.busy}
             onChange={(event) =>
               setGaming({
                 ...gaming,
@@ -83,6 +84,7 @@ export function GamingProfileForm() {
           {t("gaming.level")}
           <select
             value={gaming.level ?? ""}
+            disabled={action.busy}
             onChange={(event) =>
               setGaming({
                 ...gaming,
@@ -99,7 +101,7 @@ export function GamingProfileForm() {
           </select>
           <small>{t("gaming.levelHelp")}</small>
         </label>
-        <fieldset className="choice-group">
+        <fieldset className="choice-group" disabled={action.busy}>
           <legend>{t("gaming.availability")}</legend>
           <div className="choice-list">
             {availabilityTimes.map((time) => (
@@ -119,7 +121,7 @@ export function GamingProfileForm() {
             ))}
           </div>
         </fieldset>
-        <fieldset className="choice-group">
+        <fieldset className="choice-group" disabled={action.busy}>
           <legend>{t("gaming.languages")}</legend>
           <div className="choice-list">
             {spokenLanguages.map((code) => {
