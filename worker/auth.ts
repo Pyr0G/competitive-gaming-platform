@@ -4,7 +4,17 @@ import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
 import type { Context } from "hono";
 import { z } from "zod";
-import type { AuthResponse, SearchResponse } from "../shared/contracts";
+import {
+  availabilityTimes,
+  gamingRoles,
+  maxSpokenLanguages,
+  spokenLanguages,
+} from "../shared/contracts";
+import type {
+  AuthResponse,
+  PlayerResponse,
+  SearchResponse,
+} from "../shared/contracts";
 import {
   clearSessionCookie,
   csrfGuard,
@@ -17,9 +27,10 @@ import {
   sha256,
   throttle,
   toAccount,
+  toGaming,
   toPlayer,
 } from "./core";
-import type { AppEnv, UserRow } from "./core";
+import type { AppEnv, GamingRow, UserRow } from "./core";
 import { dummyPasswordHash } from "./passwords";
 
 const usernameSchema = z
@@ -95,6 +106,21 @@ const accountSchema = z
     ...preferences,
   })
   .strict();
+const gamingSchema = z
+  .object({
+    role: z.enum(gamingRoles).nullable(),
+    level: z.number().int().min(1).max(10).nullable(),
+    availability: z
+      .array(z.enum(availabilityTimes))
+      .max(availabilityTimes.length),
+    languages: z.array(z.enum(spokenLanguages)).max(maxSpokenLanguages),
+  })
+  .strict()
+  .refine(
+    (value) =>
+      new Set(value.availability).size === value.availability.length &&
+      new Set(value.languages).size === value.languages.length,
+  );
 const changePasswordSchema = z
   .object({
     currentPassword: z.string().max(1024),
@@ -294,6 +320,29 @@ authRouter.patch("/account", requireAuth, csrfGuard, async (c) => {
   return c.json({ account: toAccount(updated) });
 });
 
+authRouter.put("/account/gaming", requireAuth, csrfGuard, async (c) => {
+  const account = c.get("account");
+  await throttle(c, `account:gaming:${account.id}`, 30, 3600);
+  const body = await readJson(c, gamingSchema);
+  const updated = await c.env.DB.prepare(
+    "UPDATE users SET game_role = ?, game_level = ?, availability = ?, spoken_languages = ? WHERE id = ? AND banned_at IS NULL RETURNING *",
+  )
+    .bind(
+      body.role,
+      body.level,
+      JSON.stringify(
+        availabilityTimes.filter((time) => body.availability.includes(time)),
+      ),
+      JSON.stringify(
+        spokenLanguages.filter((language) => body.languages.includes(language)),
+      ),
+      account.id,
+    )
+    .first<UserRow>();
+  if (!updated) fail(401, "UNAUTHENTICATED");
+  return c.json({ account: toAccount(updated) });
+});
+
 authRouter.post("/account/password", requireAuth, csrfGuard, async (c) => {
   const account = c.get("account");
   await throttle(c, `account:password:${account.id}`, 10, 3600);
@@ -324,10 +373,12 @@ authRouter.get("/players/:id", async (c) => {
   const parsed = z.uuid().safeParse(c.req.param("id"));
   if (!parsed.success) fail(404, "NOT_FOUND");
   const player = await c.env.DB.prepare(
-    "SELECT id, username, bio, created_at FROM users WHERE id = ? AND banned_at IS NULL",
+    "SELECT id, username, bio, created_at, game_role, game_level, availability, spoken_languages FROM users WHERE id = ? AND banned_at IS NULL",
   )
     .bind(parsed.data)
-    .first<Pick<UserRow, "id" | "username" | "bio" | "created_at">>();
+    .first<
+      Pick<UserRow, "id" | "username" | "bio" | "created_at"> & GamingRow
+    >();
   if (!player) fail(404, "NOT_FOUND");
   const viewer = c.get("account");
   let relationship = null;
@@ -342,7 +393,12 @@ authRouter.get("/players/:id", async (c) => {
       blockedByOther: Boolean(state?.by_other),
     };
   }
-  return c.json({ player: toPlayer(player), relationship });
+  const response: PlayerResponse = {
+    player: toPlayer(player),
+    gaming: toGaming(player),
+    relationship,
+  };
+  return c.json(response);
 });
 
 authRouter.get("/search", async (c) => {

@@ -694,6 +694,65 @@ svg {
 .account-grid > .panel {
   min-width: 0;
 }
+.account-side {
+  display: grid;
+  gap: 28px;
+  min-width: 0;
+}
+.gaming-panel > p {
+  margin-block: 12px 24px;
+}
+.choice-group {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.choice-group legend {
+  padding: 0;
+  margin-block-end: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.choice-group > small {
+  color: var(--muted);
+}
+.choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  background: var(--deep);
+  font-size: 14px;
+  cursor: pointer;
+}
+.choice:hover {
+  border-color: #597083;
+}
+.choice:has(input:checked) {
+  border-color: #ff465580;
+  background: #ff465514;
+}
+.choice:has(input:disabled) {
+  cursor: default;
+  opacity: 0.5;
+}
+.choice input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
 .profile-heading {
   display: flex;
   align-items: center;
@@ -1201,6 +1260,53 @@ svg {
 .profile-about p {
   font-size: 15px;
 }
+.profile-gaming {
+  padding-block: 0 33px;
+}
+.profile-gaming-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-block-end: 16px;
+}
+.profile-gaming-heading h2 {
+  font-size: 17px;
+}
+.gaming-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.gaming-facts > div {
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-small);
+  background: var(--deep);
+  min-width: 0;
+}
+.gaming-facts dt {
+  color: var(--muted);
+  font-size: 12px;
+  margin-block-end: 6px;
+}
+.gaming-facts dd {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.gaming-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.gaming-tags span {
+  padding: 2px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 20px;
+  font-size: 13px;
+}
 .profile-controls {
   display: flex;
   align-items: center;
@@ -1552,6 +1658,11 @@ tbody tr:last-child td {
   color: #ffb3bb;
   background: #ff46550c;
   border-color: #ff465530;
+}
+.status-declared {
+  color: var(--silver);
+  background: #c9d3dc0c;
+  border-color: #c9d3dc30;
 }
 .empty-table {
   padding: 40px 15px;

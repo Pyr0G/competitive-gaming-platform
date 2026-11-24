@@ -38,7 +38,9 @@ Sessions use random tokens in HttpOnly, SameSite cookies. D1 stores token hashes
 
 All writes require the trusted same origin. Authenticated writes also require the session's CSRF token. The API validates JSON shape and body size, uses prepared SQL, limits sensitive requests in SQLite, and returns stable error codes without database errors or stack traces. Production cookies are Secure; HTTP cookies require explicit loopback development. Production fails closed without a trusted HTTPS origin.
 
-Public player responses contain only ID, username, bio, and join date. The account response adds the owner's email, language, locale, time zone, and administrator flag. Search returns non-banned players; future entity categories expose availability rather than demonstration records.
+Public player responses contain only ID, username, bio, and join date. The public profile response adds the player's gaming profile. The account response adds the owner's email, language, locale, time zone, administrator flag, and gaming profile.
+
+Gaming profiles are public and self-declared: an optional CS2 role (entry, support, AWPer, IGL, or flex), an optional FACEIT level from 1 to 10, availability periods, and up to five spoken languages. Only the owner edits them, through a separate endpoint that accepts the full profile. Allowed values are shared in `shared/contracts.ts`, validated by the API, and constrained by SQLite checks. Spoken languages are independent of the interface language. The level remains unverified until FACEIT identity linking exists. Search returns non-banned players; future entity categories expose availability rather than demonstration records.
 
 Player search uses bound literal substring queries on normalized usernames, including Unicode and SQL pattern characters. It avoids D1's small `LIKE` pattern limit while retaining bounded input and cursor pagination.
 
@@ -62,16 +64,16 @@ All endpoints use `/api`. Shared response types live in `shared/contracts.ts`; f
 | --- | --- |
 | Health | `GET /health` checks schema access |
 | Authentication | `GET /auth/me`; `POST /auth/register`, `/auth/login`, `/auth/logout` |
-| Account | `PATCH /account`; `POST /account/password` |
+| Account | `PATCH /account`; `PUT /account/gaming`; `POST /account/password` |
 | Players | `GET /players/:id`; `GET /search?q=...&cursor=...` |
 | Conversations | `POST /conversations`; `GET /sync`; `GET` and `POST /conversations/:id/messages`; `POST /conversations/:id/read` |
 | Safety | `PUT` and `DELETE /blocks/:playerId`; `POST /reports` |
 | Administration | `GET /admin/users`, `/admin/reports`, `/admin/actions`; `POST /admin/users/:id/ban`, `/admin/users/:id/unban`, `/admin/reports/:id/resolve` |
 
-Registration accepts `username`, `email`, `password`, `passwordConfirmation`, and optional `language`, `locale`, and `timeZone`. Sign-in accepts `identifier` and `password`. Authentication results contain `account` and `csrfToken`; anonymous requests return both as `null`. Account updates accept username, bio, and formatting preferences, never email or privileges.
+Registration accepts `username`, `email`, `password`, `passwordConfirmation`, and optional `language`, `locale`, and `timeZone`. Sign-in accepts `identifier` and `password`. Authentication results contain `account` and `csrfToken`; anonymous requests return both as `null`. Account updates accept username, bio, and formatting preferences, never email or privileges. Gaming updates accept `role`, `level`, `availability`, and `languages`; `role` and `level` may be `null`, and both lists may be empty.
 
 ## Persistence and verification
 
-D1 holds users, sessions, request counters, conversations, messages, read positions, blocks, reports, and moderation actions. SQL constraints enforce uniqueness and support application workflows. Migrations are explicit; startup does not create schemas or seed accounts.
+D1 holds users and their gaming profiles, sessions, request counters, conversations, messages, read positions, blocks, reports, and moderation actions. SQL constraints enforce uniqueness and support application workflows. Migrations are explicit; startup does not create schemas or seed accounts.
 
 Development persists SQLite state under ignored `.wrangler/`. Integration tests reset and migrate isolated bindings. Browser tests use synthetic accounts and separate local storage. Neither suite accesses a hosted database. See [local testing](LOCAL_TESTING.md) and [deployment status](DEPLOYMENT.md) for commands and verification limits.

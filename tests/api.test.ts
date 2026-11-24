@@ -15,6 +15,7 @@ import type {
   AuthResponse,
   Message,
   Player,
+  PlayerResponse,
   Report,
   SearchResponse,
   SyncResponse,
@@ -268,6 +269,139 @@ describe("accounts and public boundaries", () => {
       await request("/search?q=%25_")
     ).json()) as SearchResponse;
     expect(literal.players).toEqual([]);
+  });
+
+  it("saves self-declared gaming details and shows them on the public profile", async () => {
+    const user = await register("GamingPlayer");
+    expect(user.account.gaming).toEqual({
+      role: null,
+      level: null,
+      availability: [],
+      languages: [],
+    });
+    const empty = (await (
+      await request(`/players/${user.account.id}`)
+    ).json()) as PlayerResponse;
+    expect(empty.gaming.availability).toEqual([]);
+    const response = await request(
+      "/account/gaming",
+      "PUT",
+      {
+        role: "awp",
+        level: 8,
+        availability: ["weekends", "evenings"],
+        languages: ["pl", "en"],
+      },
+      user,
+    );
+    expect(response.status).toBe(200);
+    const saved = (await response.json()) as { account: Account };
+    expect(saved.account.gaming).toEqual({
+      role: "awp",
+      level: 8,
+      availability: ["evenings", "weekends"],
+      languages: ["en", "pl"],
+    });
+    expect(saved.account.language).toBe("en");
+    const profile = (await (
+      await request(`/players/${user.account.id}`)
+    ).json()) as PlayerResponse;
+    expect(profile.gaming).toEqual(saved.account.gaming);
+    expect(Object.keys(profile.player).sort()).toEqual([
+      "bio",
+      "createdAt",
+      "id",
+      "username",
+    ]);
+    expect(JSON.stringify(profile)).not.toContain(user.account.email);
+    const me = (await (
+      await request("/auth/me", "GET", undefined, user)
+    ).json()) as AuthResponse;
+    expect(me.account?.gaming).toEqual(saved.account.gaming);
+    const cleared = await request(
+      "/account/gaming",
+      "PUT",
+      { role: null, level: null, availability: [], languages: [] },
+      user,
+    );
+    expect(
+      ((await cleared.json()) as { account: Account }).account.gaming,
+    ).toEqual({ role: null, level: null, availability: [], languages: [] });
+  });
+
+  it("rejects invalid gaming details and unauthorized gaming updates", async () => {
+    const user = await register("StrictGamer");
+    const valid = {
+      role: "igl",
+      level: 5,
+      availability: ["daytime"],
+      languages: ["de"],
+    };
+    for (const invalid of [
+      { ...valid, role: "sniper" },
+      { ...valid, level: 0 },
+      { ...valid, level: 11 },
+      { ...valid, level: 5.5 },
+      { ...valid, availability: ["evenings", "evenings"] },
+      { ...valid, availability: ["always"] },
+      { ...valid, languages: ["en", "pl", "de", "fr", "es", "it"] },
+      { ...valid, languages: ["xx"] },
+      { ...valid, isAdmin: true },
+      { role: "igl" },
+    ]) {
+      expect(
+        (await request("/account/gaming", "PUT", invalid, user)).status,
+      ).toBe(400);
+    }
+    expect((await request("/account/gaming", "PUT", valid)).status).toBe(401);
+    const withoutCsrf = await SELF.fetch(`${origin}/api/account/gaming`, {
+      method: "PUT",
+      headers: {
+        Origin: origin,
+        Cookie: user.cookie,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(valid),
+    });
+    expect(withoutCsrf.status).toBe(403);
+    expect(
+      (
+        await request("/account/gaming", "PUT", valid, user, {
+          Origin: "https://example.net",
+        })
+      ).status,
+    ).toBe(403);
+    const row = await env.DB.prepare(
+      "SELECT game_role, game_level, availability, spoken_languages FROM users WHERE id = ?",
+    )
+      .bind(user.account.id)
+      .first();
+    expect(row).toEqual({
+      game_role: null,
+      game_level: null,
+      availability: "[]",
+      spoken_languages: "[]",
+    });
+    await env.DB.prepare("UPDATE users SET banned_at = ? WHERE id = ?")
+      .bind(new Date().toISOString(), user.account.id)
+      .run();
+    expect((await request("/account/gaming", "PUT", valid, user)).status).toBe(
+      401,
+    );
+  });
+
+  it("enforces gaming profile constraints in storage", async () => {
+    const user = await register("StoredGamer");
+    for (const statement of [
+      "UPDATE users SET game_role = 'sniper' WHERE id = ?",
+      "UPDATE users SET game_level = 11 WHERE id = ?",
+      "UPDATE users SET availability = 'evenings' WHERE id = ?",
+      "UPDATE users SET spoken_languages = '{}' WHERE id = ?",
+    ]) {
+      await expect(
+        env.DB.prepare(statement).bind(user.account.id).run(),
+      ).rejects.toThrow();
+    }
   });
 
   it("searches long Unicode terms and treats SQL pattern characters literally", async () => {

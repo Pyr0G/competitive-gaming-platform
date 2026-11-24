@@ -1,5 +1,43 @@
 export type Language = "en" | "pl";
 
+export const gamingRoles = ["entry", "support", "awp", "igl", "flex"] as const;
+export const availabilityTimes = [
+  "daytime",
+  "evenings",
+  "nights",
+  "weekends",
+] as const;
+export const spokenLanguages = [
+  "en",
+  "pl",
+  "de",
+  "fr",
+  "es",
+  "it",
+  "pt",
+  "nl",
+  "sv",
+  "da",
+  "fi",
+  "cs",
+  "sk",
+  "uk",
+  "ru",
+  "tr",
+] as const;
+export const maxSpokenLanguages = 5;
+
+export type GamingRole = (typeof gamingRoles)[number];
+export type AvailabilityTime = (typeof availabilityTimes)[number];
+export type SpokenLanguage = (typeof spokenLanguages)[number];
+
+export interface GamingProfile {
+  role: GamingRole | null;
+  level: number | null;
+  availability: AvailabilityTime[];
+  languages: SpokenLanguage[];
+}
+
 export interface Player {
   id: string;
   username: string;
@@ -13,10 +51,12 @@ export interface Account extends Player {
   locale: string;
   timeZone: string;
   isAdmin: boolean;
+  gaming: GamingProfile;
 }
 
 export interface PlayerResponse {
   player: Player;
+  gaming: GamingProfile;
   relationship: { blockedByMe: boolean; blockedByOther: boolean } | null;
 }
 

@@ -38,8 +38,8 @@ CGP/
 |           `-- [ ] REL-12 Collect feedback from initial players and prioritize confirmed usability and reliability issues.
 |
 |-- Gaming profiles and FACEIT identity/ [Brief sections 3, 8, 11]
-|   `-- [ ] PROF-01 Decide which gaming fields are public, self-declared, or provider-verified; define editing and privacy rules.
-|       |-- [ ] PROF-02 Add CS2 role (entry, support, AWPer, IGL, or flex), availability, spoken languages, and level fields to profile editing and public display.
+|   `-- [x] PROF-01 Decide which gaming fields are public, self-declared, or provider-verified; define editing and privacy rules; see the gaming profile rules in ARCHITECTURE.md.
+|       |-- [x] PROF-02 Add CS2 role (entry, support, AWPer, IGL, or flex), availability, spoken languages, and level fields to profile editing and public display.
 |       |   `-- [ ] PROF-03 Distinguish declared and verified information, and keep spoken language separate from interface language.
 |       `-- [ ] ID-01 Define how players prove ownership of a FACEIT account and how linking, unlinking, and relinking work.
 |           `-- [ ] ID-02 Link an immutable FACEIT player ID to a CGP account; do not identify a player by nickname alone.

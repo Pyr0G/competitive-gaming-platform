@@ -7,11 +7,16 @@ import {
   Swords,
   UserRound,
 } from "lucide-react";
-import type { Player } from "../../../shared/contracts";
+import type {
+  GamingProfile,
+  Player,
+  PlayerResponse,
+} from "../../../shared/contracts";
 import { json, RequestError } from "../../lib/api";
 import { useLocale } from "../../i18n";
 import { useSession, useChat } from "../../app/contexts";
 import { Avatar, Alert, useAction, Loading } from "../../components/ui";
+import { GamingProfileDetails } from "./gaming";
 
 export function ProfilePage() {
   const { id } = useParams();
@@ -19,6 +24,7 @@ export function ProfilePage() {
   const { t, date } = useLocale();
   const chat = useChat();
   const [player, setPlayer] = useState<Player | null>(null);
+  const [gaming, setGaming] = useState<GamingProfile | null>(null);
   const [relationship, setRelationship] = useState<{
     blockedByMe: boolean;
     blockedByOther: boolean;
@@ -28,15 +34,13 @@ export function ProfilePage() {
   const action = useAction();
   useEffect(() => {
     const controller = new AbortController();
-    request<{
-      player: Player;
-      relationship: { blockedByMe: boolean; blockedByOther: boolean } | null;
-    }>(`/players/${encodeURIComponent(id || "")}`, {
+    request<PlayerResponse>(`/players/${encodeURIComponent(id || "")}`, {
       signal: controller.signal,
     })
       .then((result) => {
         if (!controller.signal.aborted) {
           setPlayer(result.player);
+          setGaming(result.gaming);
           setRelationship(result.relationship);
         }
       })
@@ -112,6 +116,7 @@ export function ProfilePage() {
               {player.bio || t("profile.noBio")}
             </p>
           </div>
+          {gaming && <GamingProfileDetails gaming={gaming} />}
           {!isSelf && account && (
             <div className="profile-controls">
               <button

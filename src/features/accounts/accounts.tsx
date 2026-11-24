@@ -8,6 +8,7 @@ import { useSession } from "../../app/contexts";
 import { Avatar, Alert, useAction, PageHeading } from "../../components/ui";
 import { BrandLogo } from "../../components/BrandLogo";
 import { FlagSelect, flagRegions } from "../../components/FlagSelect";
+import { GamingProfileForm } from "../players/gaming";
 
 export function AuthPage({ register = false }: { register?: boolean }) {
   const { t, preferences, language, locale } = useLocale();
@@ -378,70 +379,73 @@ export function AccountPage() {
             </button>
           </form>
         </section>
-        <section className="panel security-panel">
-          <div className="form-section-heading">
-            <Shield size={20} />
-            <h2>{t("account.security")}</h2>
-          </div>
-          <h3>{t("account.changePassword")}</h3>
-          <p className="muted">{t("account.passwordHelp")}</p>
-          <form className="form-stack" onSubmit={changePassword}>
-            <label>
-              {t("auth.currentPassword")}
-              <input
-                type="password"
-                autoComplete="current-password"
-                required
-                maxLength={128}
-                value={password.current}
-                onChange={(event) =>
-                  setPassword({ ...password, current: event.target.value })
-                }
-              />
-            </label>
-            <label>
-              {t("auth.newPassword")}
-              <input
-                type="password"
-                autoComplete="new-password"
-                required
-                minLength={8}
-                maxLength={128}
-                value={password.next}
-                onChange={(event) =>
-                  setPassword({ ...password, next: event.target.value })
-                }
-              />
-              <small>{t("auth.passwordHint")}</small>
-            </label>
-            <label>
-              {t("auth.confirm")}
-              <input
-                type="password"
-                autoComplete="new-password"
-                required
-                maxLength={128}
-                value={password.confirm}
-                onChange={(event) =>
-                  setPassword({ ...password, confirm: event.target.value })
-                }
-              />
-            </label>
-            {security.error === "password_mismatch" ? (
-              <p role="alert" className="alert alert-error">
-                {t("auth.mismatch")}
-              </p>
-            ) : (
-              <Alert code={security.error} />
-            )}
-            <button
-              className="button button-secondary"
-              disabled={security.busy}
-            >
-              {t("account.changePassword")}
-            </button>
-          </form>
-        </section>
+        <div className="account-side">
+          <GamingProfileForm />
+          <section className="panel security-panel">
+            <div className="form-section-heading">
+              <Shield size={20} />
+              <h2>{t("account.security")}</h2>
+            </div>
+            <h3>{t("account.changePassword")}</h3>
+            <p className="muted">{t("account.passwordHelp")}</p>
+            <form className="form-stack" onSubmit={changePassword}>
+              <label>
+                {t("auth.currentPassword")}
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                  maxLength={128}
+                  value={password.current}
+                  onChange={(event) =>
+                    setPassword({ ...password, current: event.target.value })
+                  }
+                />
+              </label>
+              <label>
+                {t("auth.newPassword")}
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  minLength={8}
+                  maxLength={128}
+                  value={password.next}
+                  onChange={(event) =>
+                    setPassword({ ...password, next: event.target.value })
+                  }
+                />
+                <small>{t("auth.passwordHint")}</small>
+              </label>
+              <label>
+                {t("auth.confirm")}
+                <input
+                  type="password"
+                  autoComplete="new-password"
+                  required
+                  maxLength={128}
+                  value={password.confirm}
+                  onChange={(event) =>
+                    setPassword({ ...password, confirm: event.target.value })
+                  }
+                />
+              </label>
+              {security.error === "password_mismatch" ? (
+                <p role="alert" className="alert alert-error">
+                  {t("auth.mismatch")}
+                </p>
+              ) : (
+                <Alert code={security.error} />
+              )}
+              <button
+                className="button button-secondary"
+                disabled={security.busy}
+              >
+                {t("account.changePassword")}
+              </button>
+            </form>
+          </section>
+        </div>
       </div>
     </div>
   );

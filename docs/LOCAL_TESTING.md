@@ -55,7 +55,7 @@ Tool configuration stays in the repository root. TypeScript writes its generated
 
 Integration tests run the real local Worker and password-hashing object with isolated D1 bindings. Setup resets and reapplies migrations before each test. Tests use synthetic data and do not access external services.
 
-Chat checks cover migration from existing message history, exact unread counts during retries and concurrent reads, account-level synchronization limits across sessions, and database read work as unread history grows. Search checks include long Unicode terms, literal pattern characters, and pagination. Apply all local migrations before using an existing development database; `0002_chat_inbox.sql` preserves messages and read positions while initializing inbox counters.
+Chat checks cover migration from existing message history, exact unread counts during retries and concurrent reads, account-level synchronization limits across sessions, and database read work as unread history grows. Search checks include long Unicode terms, literal pattern characters, and pagination. Apply all local migrations before using an existing development database; `0002_chat_inbox.sql` preserves messages and read positions while initializing inbox counters, and `0003_gaming_profiles.sql` gives existing accounts an empty gaming profile.
 
 Check both runtime and development dependency advisories with `pnpm audit`. An advisory-free result describes the registry data available at that time; it is not a complete security assessment.
 
@@ -69,7 +69,7 @@ Use two browser profiles or a regular window and a private window so cookies sta
 
 1. Create a different account in each window. Confirm both are active immediately and can sign out and sign back in using username or email.
 2. Check that home content is empty, the shared shell stays visible, and future navigation does not pretend to implement its features.
-3. Change English/Polish language, region, and time zone. Check labels and dates. Update username and bio, reload, and confirm persistence. Email stays private and read-only.
+3. Change English/Polish language, region, and time zone. Check labels and dates. Update username and bio, reload, and confirm persistence. Email stays private and read-only. Set a CS2 role, FACEIT level, availability, and spoken languages, save the gaming profile, and confirm the other window sees them as self-declared on the public profile. A sixth spoken language cannot be selected.
 4. Search for the other username, open its profile, and start a conversation. Send messages both ways, reload, and confirm history. Check top-bar unread counts and chat notifications in the receiving window.
 5. Open the receiving conversation and confirm its unread count clears. Check earlier history when enough messages exist. A failed send should retain the draft and permit retry.
 6. Block the other player. Confirm sending stops in both directions, then unblock and retry. Report a received message with a synthetic reason.

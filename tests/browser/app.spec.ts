@@ -256,7 +256,89 @@ test("creates an account through the interface and saves public profile changes"
     }),
   ).toBeVisible();
   expect(await page.evaluate(() => "bad" in window)).toBe(false);
+  await expect(
+    page.getByText("This player has not added gaming details yet."),
+  ).toBeVisible();
+  await page.goto("/account");
+  await page.getByLabel("Main CS2 role").selectOption("igl");
+  await page.getByLabel("FACEIT level").selectOption("7");
+  await page.getByRole("checkbox", { name: "Evenings" }).check();
+  await page.getByRole("checkbox", { name: "Polish" }).check();
+  await page.getByRole("checkbox", { name: "English" }).check();
+  await page
+    .getByRole("button", { name: "Save gaming profile", exact: true })
+    .click();
+  await expect(page.getByRole("status")).toContainText("Gaming profile saved.");
+  await page.goto(`/players/${auth.account!.id}`);
+  const gaming = page.locator(".profile-gaming");
+  await expect(gaming).toContainText("Self-declared");
+  await expect(gaming).toContainText("In-game leader");
+  await expect(gaming).toContainText("Evenings");
+  await expect(gaming.locator(".gaming-tags span")).toHaveText([
+    "Evenings",
+    "English",
+    "Polish",
+  ]);
   await page.screenshot({ path: info.outputPath("profile.png") });
+});
+
+test("disables all gaming profile controls while a save is pending", async ({
+  browser,
+}) => {
+  const user = await createUser(browser, "GamingSavePlayer");
+  const { page, context } = user;
+  let releaseSave: () => void = () => {};
+  let saveStarted: () => void = () => {};
+  const held = new Promise<void>((resolve) => {
+    releaseSave = resolve;
+  });
+  const started = new Promise<void>((resolve) => {
+    saveStarted = resolve;
+  });
+  try {
+    await page.goto("/account");
+    const form = page.locator(".gaming-panel");
+    const role = form.getByLabel("Main CS2 role");
+    const level = form.getByLabel("FACEIT level");
+    await role.selectOption("igl");
+    await level.selectOption("7");
+    await form.getByRole("checkbox", { name: "Evenings" }).check();
+    await form.getByRole("checkbox", { name: "Polish" }).check();
+    await page.route("**/api/account/gaming", async (route) => {
+      const response = await route.fetch();
+      saveStarted();
+      await held;
+      await route.fulfill({ response });
+    });
+    await form.getByRole("button", { name: "Save gaming profile" }).click();
+    await started;
+    await expect(role).toBeDisabled();
+    await expect(level).toBeDisabled();
+    for (const checkbox of await form.getByRole("checkbox").all()) {
+      await expect(checkbox).toBeDisabled();
+    }
+    await expect(form.getByRole("button", { name: "Saving…" })).toBeDisabled();
+    releaseSave();
+    await expect(form.getByRole("status")).toHaveText("Gaming profile saved.");
+    await expect(role).toBeEnabled();
+    await expect(role).toHaveValue("igl");
+    await expect(level).toBeEnabled();
+    await expect(level).toHaveValue("7");
+    await expect(
+      form.getByRole("checkbox", { name: "Evenings" }),
+    ).toBeChecked();
+    await expect(
+      form.getByRole("checkbox", { name: "Evenings" }),
+    ).toBeEnabled();
+    await expect(form.getByRole("checkbox", { name: "Polish" })).toBeChecked();
+    await expect(form.getByRole("checkbox", { name: "Polish" })).toBeEnabled();
+    await expect(
+      form.getByRole("button", { name: "Save gaming profile" }),
+    ).toBeEnabled();
+  } finally {
+    releaseSave();
+    await context.close();
+  }
 });
 
 test("clears old account state across tabs and ignores a save response arriving after logout", async ({
