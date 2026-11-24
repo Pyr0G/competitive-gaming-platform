@@ -41,12 +41,17 @@ import { SearchDialog } from "../features/search/search";
 import { ProfilePage } from "../features/players/profile";
 import { AdminPage } from "../features/admin/admin";
 import { GuidePage } from "../features/guide/guide";
+import { HomePage } from "../features/home/home";
+import { RankingsPage } from "../features/rankings/rankings";
+import { RecruitmentPage } from "../features/recruitment/recruitment";
+import { TeamPage, TeamsPage } from "../features/teams/teams";
+import { TournamentsPage } from "../features/tournaments/tournaments";
 
-const futureNavigation = [
-  { key: "nav.tournaments", icon: Trophy },
-  { key: "nav.teams", icon: Users },
-  { key: "nav.recruitment", icon: UserRoundSearch },
-  { key: "nav.rankings", icon: ChartNoAxesColumnIncreasing },
+const primaryNavigation = [
+  { key: "nav.tournaments", icon: Trophy, to: "/tournaments" },
+  { key: "nav.teams", icon: Users, to: "/teams" },
+  { key: "nav.recruitment", icon: UserRoundSearch, to: "/recruitment" },
+  { key: "nav.rankings", icon: ChartNoAxesColumnIncreasing, to: "/rankings" },
 ] as const;
 
 export function Navigation({ close }: { close?: () => void }) {
@@ -57,12 +62,11 @@ export function Navigation({ close }: { close?: () => void }) {
         <BrandLogo variant="wordmark" />
       </Link>
       <nav aria-label={t("nav.main")} className="navigation">
-        {futureNavigation.map(({ key, icon: Icon }) => (
-          <button key={key} disabled title={t("nav.future")}>
+        {primaryNavigation.map(({ key, icon: Icon, to }) => (
+          <NavLink key={key} to={to} onClick={close}>
             <Icon size={19} />
             <span>{t(key)}</span>
-            <span className="future-dot" aria-label={t("nav.future")} />
-          </button>
+          </NavLink>
         ))}
         <NavLink to="/guide" onClick={close}>
           <BookOpen size={19} />
@@ -251,20 +255,20 @@ export function Shell() {
             )}
           </div>
         </header>
-        <main
-          id="main-content"
-          className={
-            location.pathname === "/"
-              ? "main-content empty-home"
-              : "main-content"
-          }
-          tabIndex={-1}
-        >
+        <main id="main-content" className="main-content" tabIndex={-1}>
           {loading ? (
             <Loading />
           ) : (
             <Routes>
-              <Route path="/" element={null} />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/tournaments" element={<TournamentsPage />} />
+              <Route path="/teams" element={<TeamsPage />} />
+              <Route
+                path="/teams/:id"
+                element={<TeamPage key={location.pathname} />}
+              />
+              <Route path="/recruitment" element={<RecruitmentPage />} />
+              <Route path="/rankings" element={<RankingsPage />} />
               <Route path="/guide" element={<GuidePage />} />
               <Route path="/login" element={<AuthPage />} />
               <Route path="/register" element={<AuthPage register />} />
@@ -312,6 +316,8 @@ export function Shell() {
             <span>{t("app.tagline")}</span>
           </div>
           <nav aria-label={t("footer.navigation")} className="footer-links">
+            <Link to="/tournaments">{t("nav.tournaments")}</Link>
+            <Link to="/teams">{t("nav.teams")}</Link>
             <Link to="/guide">{t("nav.guide")}</Link>
             <button onClick={() => setSearch(true)}>{t("search.label")}</button>
             <button onClick={() => setLocale(true)}>{t("locale.title")}</button>
