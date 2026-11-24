@@ -137,6 +137,45 @@ export interface AdminAction {
   createdAt: string;
 }
 
+export interface Post {
+  id: string;
+  title: string;
+  body: string;
+  authorUsername: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PostsResponse {
+  posts: Post[];
+}
+
+export interface TeamSummary {
+  id: string;
+  name: string;
+  tag: string;
+  captainId: string;
+  captainUsername: string;
+  memberCount: number;
+  createdAt: string;
+}
+
+export interface TeamMember {
+  id: string;
+  username: string;
+  role: "captain" | "member";
+  joinedAt: string;
+}
+
+export interface TeamDetails extends TeamSummary {
+  members: TeamMember[];
+}
+
+export interface TeamsResponse {
+  teams: TeamSummary[];
+  nextCursor: string | null;
+}
+
 export interface ApiError {
   error: { code: string };
 }
