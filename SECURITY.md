@@ -14,7 +14,7 @@ CGP has a React interface, Worker API, and SQLite storage. Version 0.1.0 has an 
 
 Review authentication, hashing, session issuance and revocation, CSRF and origins, input bounds, prepared SQL, request limits, authorization, participant-only messages, blocks, report evidence, administrative actions, dependencies, and accidental private-data disclosure.
 
-Public profiles and search expose player identifiers, usernames, bios, and join dates. Email and account preferences belong to the account owner. Chat history belongs to participants. Moderators review bounded report evidence, rather than browse arbitrary conversations. Administrator status changes require direct database interaction.
+Public profiles and search expose active player identifiers, usernames, bios, and join dates. Public team summaries expose team details and active roster information. Banned accounts are excluded from public rosters and member counts, and a banned captain's identifier and username are returned as null in public team responses. Team membership records are retained for restoration after an unban. Email and account preferences belong to the account owner. Chat history belongs to participants. Moderators review bounded report evidence, rather than browse arbitrary conversations. Administrator status changes require direct database interaction.
 
 Passwords use native scrypt in a private Durable Object. CGP stores password hashes and hashed session tokens, uses HttpOnly cookies, validates write origins and authenticated CSRF tokens, and reads current permissions from SQLite. These controls require continued validation; they do not guarantee that every vulnerability has been eliminated.
 

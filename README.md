@@ -4,16 +4,16 @@ CGP is a Counter-Strike 2 community application built with React, TypeScript, an
 
 ## Available features
 
-- A responsive shell with shared styling, a sidebar, player search, message notifications, chat, language controls, and account access. The home content area is intentionally empty.
+- A responsive shell with shared styling, a sidebar, player and team search, message notifications, chat, language controls, and account access.
 - Registration, username-or-email sign-in, sign-out, public profiles, profile editing, password changes, and language, region, and time-zone preferences.
 - Self-declared gaming profiles with CS2 role, FACEIT level, availability, and spoken languages shown on public profiles.
-- Home updates managed by administrators, team creation and public team pages, plus ready shells for tournaments, recruitment and rankings.
+- A home feed showing up to four recent administrator updates, team creation and public team pages, plus preview pages for tournaments, recruitment and rankings.
 - Private one-to-one text conversations, unread counts, message history, blocking, and message reporting.
 - An administrator panel for user search, bans and unbans, report review, report resolution, and moderation history. Administrator access is assigned only through direct database changes.
 - Shared English and Polish copy, English fallback, and locale-aware dates and numbers.
 - A public Guide at `/guide`, below Rankings in the sidebar, with six numbered sections: How it works, Tournaments, Recruitment, Tournament bracket and results, Rankings, and Map veto, followed by a recruitment call to action. It includes a four-step animated tutorial, tournament status filters and sample countdowns, recruitment filters and form previews, registered-team rosters, match details, simulated result checks that update the sample bracket and eight-team standings, and BO1/BO3 veto with auto-complete and reset. Examples stay in page memory and reset on leaving or reloading the Guide. They do not create records, import real results, or contact external services. Tutorial playback pauses on hover, focus, hidden tabs, or leaving the viewport, and respects reduced-motion preferences.
 
-Tournament, team, recruitment, and ranking navigation represents future functionality. The CGP logo returns to home; the shared footer provides Guide, search, and language controls. Search returns real players; team and tournament categories are explicitly unavailable. Notifications currently concern chat only. Email delivery, verification, password recovery, attachments, and external integrations are not included.
+The team directory and public rosters use application data in D1. Tournament, recruitment and ranking pages preview future functionality. The CGP logo returns to home, and the shared footer provides Tournaments, Teams, Guide, search and language controls. General search supports players by username and teams by name or tag, with tournament search planned for later. The team directory also supports name and tag filtering. Notifications currently concern chat only. Email delivery, verification, password recovery, attachments, and external integrations are not included.
 
 ## Run locally
 
