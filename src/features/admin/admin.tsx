@@ -19,6 +19,14 @@ import {
   PageHeading,
 } from "../../components/ui";
 
+interface AdminPageResponse {
+  users?: AdminUser[];
+  reports?: Report[];
+  posts?: Post[];
+  actions?: AdminAction[];
+  nextCursor: string | null;
+}
+
 export function AdminPage() {
   const { t, date } = useLocale();
   const { request, account } = useSession();
@@ -44,6 +52,7 @@ export function AdminPage() {
     title: string;
     body: string;
   } | null>(null);
+  const [postDeleteId, setPostDeleteId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const action = useAction();
   const moreAction = useAction();
@@ -52,6 +61,9 @@ export function AdminPage() {
     pageEpoch.current++;
     setLoading(true);
     setError("");
+    action.setError("");
+    moreAction.setError("");
+    setPostDeleteId(null);
     setUsers([]);
     setReports([]);
     setPosts([]);
@@ -69,18 +81,12 @@ export function AdminPage() {
         ? `/admin/reports?status=${status}`
         : tab === "posts"
           ? "/admin/posts"
-          : "/admin/actions?";
+          : "/admin/actions";
   useEffect(() => {
     const controller = new AbortController();
     const timer = setTimeout(
       () => {
-        request<{
-          users?: AdminUser[];
-          reports?: Report[];
-          posts?: Post[];
-          actions?: AdminAction[];
-          nextCursor?: string | null;
-        }>(endpoint, { signal: controller.signal })
+        request<AdminPageResponse>(endpoint, { signal: controller.signal })
           .then((result) => {
             if (controller.signal.aborted) return;
             setUsers(result.users || []);
@@ -107,18 +113,27 @@ export function AdminPage() {
     };
   }, [endpoint, query, revision, request, tab]);
   async function more() {
+    if (!cursor) return;
     const currentEpoch = pageEpoch.current;
-    const result = await request<{
-      users?: AdminUser[];
-      reports?: Report[];
-      actions?: AdminAction[];
-      nextCursor: string | null;
-    }>(`${endpoint}&cursor=${encodeURIComponent(cursor!)}`);
+    const separator = endpoint.includes("?") ? "&" : "?";
+    const result = await request<AdminPageResponse>(
+      `${endpoint}${separator}cursor=${encodeURIComponent(cursor)}`,
+    );
     if (currentEpoch !== pageEpoch.current) return;
     setUsers((current) => [...current, ...(result.users || [])]);
     setReports((current) => [...current, ...(result.reports || [])]);
+    setPosts((current) => [...current, ...(result.posts || [])]);
     setActions((current) => [...current, ...(result.actions || [])]);
     setCursor(result.nextCursor);
+  }
+  function openPostEditor(post?: Post) {
+    action.setError("");
+    setPostDeleteId(null);
+    setPostEditor(
+      post
+        ? { id: post.id, title: post.title, body: post.body }
+        : { title: "", body: "" },
+    );
   }
   function submitPost(event: FormEvent) {
     event.preventDefault();
@@ -170,6 +185,7 @@ export function AdminPage() {
           <button
             className={tab === value ? "active" : ""}
             onClick={() => {
+              if (tab === value) return;
               resetPage();
               setTab(value);
             }}
@@ -212,7 +228,8 @@ export function AdminPage() {
           ) : tab === "posts" ? (
             <button
               className="button button-small"
-              onClick={() => setPostEditor({ title: "", body: "" })}
+              onClick={() => openPostEditor()}
+              disabled={action.busy}
             >
               {t("admin.newPost")}
             </button>
@@ -222,6 +239,7 @@ export function AdminPage() {
           <button
             className="button button-secondary button-small"
             onClick={refreshPage}
+            disabled={action.busy}
           >
             {t("common.refresh")}
           </button>
@@ -301,32 +319,29 @@ export function AdminPage() {
                   <div className="button-row">
                     <button
                       className="button button-secondary button-small"
-                      onClick={() =>
-                        setPostEditor({
-                          id: post.id,
-                          title: post.title,
-                          body: post.body,
-                        })
-                      }
+                      onClick={() => openPostEditor(post)}
+                      disabled={action.busy}
                     >
                       {t("admin.editPost")}
                     </button>
                     <button
                       className="button button-secondary button-small"
-                      onClick={() =>
+                      onClick={() => {
+                        setPostDeleteId(post.id);
                         void action.run(async () => {
                           await request(
                             `/admin/posts/${post.id}`,
                             json("DELETE"),
                           );
                           refreshPage();
-                        }, "admin.postDeleted")
-                      }
+                        }, "admin.postDeleted");
+                      }}
                       disabled={action.busy}
                     >
                       {t("admin.deletePost")}
                     </button>
                   </div>
+                  <Alert code={postDeleteId === post.id ? action.error : ""} />
                 </article>
               ))}
             </div>
@@ -436,7 +451,7 @@ export function AdminPage() {
         ) : (
           <p className="empty-table">{t("admin.noAudit")}</p>
         )}
-        {cursor && tab !== "posts" && (
+        {cursor && (
           <button
             className="button button-secondary load-more"
             disabled={moreAction.busy}

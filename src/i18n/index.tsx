@@ -100,7 +100,7 @@ const en = {
   "guide.teams.openSlot": "Vacant position",
   "guide.teams.permissions": "Planned team permissions",
   "guide.teams.permissionsHelp":
-    "Captains could manage invitations, the roster and tournament entries. Players would accept invitations before joining. Team creation and invitations are not available yet.",
+    "Captains could manage invitations, the roster and tournament entries. Players would accept invitations before joining. You can already create a team and view its public roster. Invitations are planned for later.",
   "guide.tournaments.title": "Tournaments",
   "guide.tournaments.description":
     "Browse events, check entry requirements and follow a bracket. Select an example match to inspect its details.",
@@ -180,10 +180,12 @@ const en = {
   "common.optional": "Optional",
   "common.actions": "Actions",
   "common.refresh": "Refresh",
-  "search.placeholder": "Search players, teams, tournaments…",
+  "search.placeholder": "Search players and teams…",
   "search.label": "Search CGP",
   "search.title": "Find your next connection",
-  "search.hint": "Search for a player by username.",
+  "search.hint": "Search for a player by username or a team by name or tag.",
+  "search.playerHint": "Search for a player by username.",
+  "search.teamHint": "Search for a team by name or tag.",
   "search.overview": "Overview",
   "search.players": "Players",
   "search.teams": "Teams",
@@ -204,6 +206,8 @@ const en = {
   "home.open": "Open",
   "teams.title": "Teams",
   "teams.help": "Create a team or browse public rosters.",
+  "teams.search": "Search teams by name or tag",
+  "teams.noMatches": "No teams match your search.",
   "teams.create": "Create team",
   "teams.empty": "No teams yet",
   "teams.emptyHelp": "Be the first to create a team and invite players later.",
@@ -212,9 +216,11 @@ const en = {
   "teams.tag": "Tag",
   "teams.tagHelp": "2–5 letters or numbers. Shown on the roster.",
   "teams.captain": "Captain {name}",
+  "teams.captainUnavailable": "Captain unavailable",
   "teams.members": "{count} members",
   "teams.created": "Created {date}",
   "teams.roster": "Roster",
+  "teams.rosterEmpty": "No public roster members.",
   "teams.roleCaptain": "Captain",
   "teams.roleMember": "Member",
   "teams.notFound": "Team not found",
@@ -283,9 +289,12 @@ const en = {
   "admin.postDeleted": "Update deleted.",
   "error.team_unavailable": "That team name or tag is already taken.",
   "search.empty": "No players found.",
+  "search.teamsEmpty": "No teams found.",
   "search.minimum": "Enter at least 2 characters.",
   "search.count": "{count} players",
+  "search.teamCount": "{count} teams",
   "search.open": "View profile for {name}",
+  "search.openTeam": "View team {name} ({tag})",
   "search.clear": "Clear search",
   "auth.login": "Sign in",
   "auth.register": "Create account",
@@ -587,7 +596,7 @@ const pl: Record<keyof typeof en, string> = {
   "guide.teams.openSlot": "Wakat w składzie",
   "guide.teams.permissions": "Planowane uprawnienia w drużynie",
   "guide.teams.permissionsHelp":
-    "Kapitanowie mogą zarządzać zaproszeniami, składem i zgłoszeniami do turniejów. Dołączenie gracza wymagałoby przyjęcia zaproszenia. Tworzenie drużyn i zaproszenia nie są jeszcze dostępne.",
+    "Kapitanowie mogliby zarządzać zaproszeniami, składem i zgłoszeniami do turniejów. Dołączenie gracza wymagałoby przyjęcia zaproszenia. Możesz już założyć drużynę i przeglądać jej publiczny skład. Zaproszenia są planowane na później.",
   "guide.tournaments.title": "Turnieje",
   "guide.tournaments.description":
     "Przeglądaj wydarzenia, sprawdzaj wymagania i śledź drabinkę. Wybierz przykładowy mecz, aby zobaczyć szczegóły.",
@@ -668,10 +677,13 @@ const pl: Record<keyof typeof en, string> = {
   "common.optional": "Opcjonalnie",
   "common.actions": "Działania",
   "common.refresh": "Odśwież",
-  "search.placeholder": "Szukaj graczy, drużyn, turniejów…",
+  "search.placeholder": "Szukaj graczy i drużyn…",
   "search.label": "Szukaj w CGP",
   "search.title": "Znajdź graczy",
-  "search.hint": "Wyszukaj gracza po nazwie użytkownika.",
+  "search.hint":
+    "Wyszukaj gracza po nazwie użytkownika lub drużynę po nazwie albo tagu.",
+  "search.playerHint": "Wyszukaj gracza po nazwie użytkownika.",
+  "search.teamHint": "Wyszukaj drużynę po nazwie lub tagu.",
   "search.overview": "Przegląd",
   "search.players": "Gracze",
   "search.teams": "Drużyny",
@@ -692,6 +704,8 @@ const pl: Record<keyof typeof en, string> = {
   "home.open": "Otwórz",
   "teams.title": "Drużyny",
   "teams.help": "Załóż drużynę albo przeglądaj publiczne składy.",
+  "teams.search": "Szukaj drużyn po nazwie lub tagu",
+  "teams.noMatches": "Brak drużyn pasujących do wyszukiwania.",
   "teams.create": "Załóż drużynę",
   "teams.empty": "Brak drużyn",
   "teams.emptyHelp":
@@ -701,9 +715,11 @@ const pl: Record<keyof typeof en, string> = {
   "teams.tag": "Tag",
   "teams.tagHelp": "2–5 liter lub cyfr. Widoczny przy składzie.",
   "teams.captain": "Kapitan {name}",
+  "teams.captainUnavailable": "Kapitan niedostępny",
   "teams.members": "Członków: {count}",
   "teams.created": "Utworzono {date}",
   "teams.roster": "Skład",
+  "teams.rosterEmpty": "Brak publicznie widocznych członków składu.",
   "teams.roleCaptain": "Kapitan",
   "teams.roleMember": "Członek",
   "teams.notFound": "Nie znaleziono drużyny",
@@ -773,9 +789,12 @@ const pl: Record<keyof typeof en, string> = {
   "admin.postDeleted": "Wpis usunięty.",
   "error.team_unavailable": "Ta nazwa lub tag drużyny jest już zajęty.",
   "search.empty": "Nie znaleziono graczy.",
+  "search.teamsEmpty": "Nie znaleziono drużyn.",
   "search.minimum": "Wpisz co najmniej 2 znaki.",
   "search.count": "Gracze: {count}",
+  "search.teamCount": "Drużyny: {count}",
   "search.open": "Zobacz profil: {name}",
+  "search.openTeam": "Zobacz drużynę {name} ({tag})",
   "search.clear": "Wyczyść wyszukiwanie",
   "auth.login": "Zaloguj się",
   "auth.register": "Utwórz konto",
@@ -1076,6 +1095,18 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
                   many: "{count} graczy",
                   other: "{count} gracza",
                 },
+                "search.teamCount": {
+                  one: "{count} drużyna",
+                  few: "{count} drużyny",
+                  many: "{count} drużyn",
+                  other: "{count} drużyny",
+                },
+                "teams.members": {
+                  one: "{count} członek",
+                  few: "{count} członków",
+                  many: "{count} członków",
+                  other: "{count} członka",
+                },
                 "chat.unread": {
                   one: "{count} nieprzeczytana wiadomość",
                   few: "{count} nieprzeczytane wiadomości",
@@ -1090,6 +1121,18 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
                   many: "{count} players",
                   other: "{count} players",
                 },
+                "search.teamCount": {
+                  one: "{count} team",
+                  few: "{count} teams",
+                  many: "{count} teams",
+                  other: "{count} teams",
+                },
+                "teams.members": {
+                  one: "{count} member",
+                  few: "{count} members",
+                  many: "{count} members",
+                  other: "{count} members",
+                },
                 "chat.unread": {
                   one: "{count} unread message",
                   few: "{count} unread messages",
@@ -1098,7 +1141,10 @@ export function LocaleProvider({ children }: { children: ReactNode }) {
                 },
               };
         const template =
-          key === "search.count" || key === "chat.unread"
+          key === "search.count" ||
+          key === "search.teamCount" ||
+          key === "teams.members" ||
+          key === "chat.unread"
             ? pluralForms[key][plural as "one" | "few" | "many" | "other"] ||
               pluralForms[key].other
             : catalog[key] || en[key] || en["error.generic"];

@@ -7,6 +7,9 @@ import type {
   ReportEvidence,
 } from "../shared/contracts";
 import {
+  ADMIN_PAGE_SIZE,
+  adminCursor,
+  adminPage,
   csrfGuard,
   fail,
   now,
@@ -50,7 +53,6 @@ interface ActionRow {
   created_at: string;
 }
 
-const PAGE_SIZE = 25;
 const idSchema = z.string().uuid();
 const reasonSchema = z
   .object({ reason: z.string().trim().min(3).max(1000) })
@@ -60,27 +62,6 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
   const result = schema.safeParse(value);
   if (!result.success) fail(400, "INVALID_INPUT");
   return result.data;
-}
-
-function cursor(
-  value: string | undefined,
-): { createdAt: string; id: string } | null {
-  if (!value) return null;
-  const parts = value.split("|");
-  if (parts.length !== 2) fail(400, "INVALID_INPUT");
-  const createdAt = parse(z.string().datetime({ precision: 3 }), parts[0]);
-  const id = parse(idSchema, parts[1]);
-  return { createdAt, id };
-}
-
-function paged<T extends { id: string; created_at: string }>(rows: T[]) {
-  const page = rows.slice(0, PAGE_SIZE);
-  const last = page.at(-1);
-  return {
-    rows: page,
-    nextCursor:
-      rows.length > PAGE_SIZE && last ? `${last.created_at}|${last.id}` : null,
-  };
 }
 
 function toUser(row: AdminUserRow): AdminUser {
@@ -103,19 +84,19 @@ adminRouter.get("/admin/users", async (c) => {
   const query = parse(z.string().trim().max(100), c.req.query("q") ?? "")
     .normalize("NFKC")
     .toLowerCase();
-  const after = cursor(c.req.query("cursor"));
+  const after = adminCursor(c.req.query("cursor"));
   await throttle(c, `admin-read:${c.get("account").id}`, 120, 60);
   const { results } = await c.env.DB.prepare(
     `
     SELECT id, username, bio, created_at, is_admin, banned_at, ban_reason FROM users
     WHERE (?1 = '' OR instr(username_key, ?1) > 0)
       AND (?2 = '' OR created_at < ?2 OR (created_at = ?2 AND id < ?3))
-    ORDER BY created_at DESC, id DESC LIMIT ${PAGE_SIZE + 1}
+    ORDER BY created_at DESC, id DESC LIMIT ${ADMIN_PAGE_SIZE + 1}
   `,
   )
     .bind(query, after?.createdAt ?? "", after?.id ?? "")
     .all<AdminUserRow>();
-  const page = paged(results);
+  const page = adminPage(results);
   return c.json({ users: page.rows.map(toUser), nextCursor: page.nextCursor });
 });
 
@@ -163,7 +144,7 @@ adminRouter.get("/admin/reports", async (c) => {
     z.enum(["open", "resolved"]),
     c.req.query("status") ?? "open",
   );
-  const after = cursor(c.req.query("cursor"));
+  const after = adminCursor(c.req.query("cursor"));
   await throttle(c, `admin-read:${c.get("account").id}`, 120, 60);
   const { results } = await c.env.DB.prepare(
     `
@@ -174,12 +155,12 @@ adminRouter.get("/admin/reports", async (c) => {
     JOIN users reporter ON reporter.id = r.reporter_id
     JOIN users reported ON reported.id = r.reported_user_id
     WHERE r.status = ?1 AND (?2 = '' OR r.created_at < ?2 OR (r.created_at = ?2 AND r.id < ?3))
-    ORDER BY r.created_at DESC, r.id DESC LIMIT ${PAGE_SIZE + 1}
+    ORDER BY r.created_at DESC, r.id DESC LIMIT ${ADMIN_PAGE_SIZE + 1}
   `,
   )
     .bind(status, after?.createdAt ?? "", after?.id ?? "")
     .all<ReportRow>();
-  const page = paged(results);
+  const page = adminPage(results);
   const reports: Report[] = page.rows.map((row) => ({
     id: row.id,
     reporterId: row.reporter_id,
@@ -236,12 +217,12 @@ adminRouter.get("/admin/actions", async (c) => {
     FROM admin_actions a
     JOIN users actor ON actor.id = a.actor_id
     LEFT JOIN users target ON target.id = a.target_user_id
-    WHERE (?1 = 0 OR a.id < ?1) ORDER BY a.id DESC LIMIT ${PAGE_SIZE + 1}
+    WHERE (?1 = 0 OR a.id < ?1) ORDER BY a.id DESC LIMIT ${ADMIN_PAGE_SIZE + 1}
   `,
   )
     .bind(after)
     .all<ActionRow>();
-  const rows = results.slice(0, PAGE_SIZE);
+  const rows = results.slice(0, ADMIN_PAGE_SIZE);
   const actions: AdminAction[] = rows.map((row) => ({
     id: row.id,
     actorUsername: row.actor_username,
@@ -252,6 +233,7 @@ adminRouter.get("/admin/actions", async (c) => {
   }));
   return c.json({
     actions,
-    nextCursor: results.length > PAGE_SIZE ? String(rows.at(-1)!.id) : null,
+    nextCursor:
+      results.length > ADMIN_PAGE_SIZE ? String(rows.at(-1)!.id) : null,
   });
 });

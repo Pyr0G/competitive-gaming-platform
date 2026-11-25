@@ -100,10 +100,7 @@ export function RecruitmentPage() {
         >
           <form
             className="form-stack"
-            onSubmit={(event) => {
-              event.preventDefault();
-              setPreviewOpen(false);
-            }}
+            onSubmit={(event) => event.preventDefault()}
           >
             <p className="muted">{t("recruitment.previewHelp")}</p>
             <label>
@@ -134,7 +131,11 @@ export function RecruitmentPage() {
             <p className="alert alert-success" role="status">
               {t("recruitment.previewReady")}
             </p>
-            <button className="button" type="submit">
+            <button
+              className="button"
+              type="button"
+              onClick={() => setPreviewOpen(false)}
+            >
               {t("common.close")}
             </button>
           </form>

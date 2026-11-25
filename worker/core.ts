@@ -4,10 +4,13 @@ import { Buffer } from "node:buffer";
 import { deleteCookie, getCookie } from "hono/cookie";
 import { HTTPException } from "hono/http-exception";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
-import type { ZodType } from "zod";
+import { z, type ZodType } from "zod";
 import {
   availabilityTimes,
   gamingRoles,
+  maxSearchLength,
+  minSearchLength,
+  normalizeSearchQuery,
   spokenLanguages,
 } from "../shared/contracts";
 import type { Account, GamingProfile, Player } from "../shared/contracts";
@@ -62,9 +65,74 @@ export type AppEnv = {
 
 export const now = () => new Date().toISOString();
 export const newId = () => crypto.randomUUID();
+export const ADMIN_PAGE_SIZE = 25;
+const adminCursorSchema = z.tuple([
+  z.string().datetime({ precision: 3 }),
+  z.string().uuid(),
+]);
+
+export const activeSessionSql = `FROM users JOIN sessions ON sessions.user_id = users.id
+  WHERE users.id = ? AND sessions.token_hash = ? AND users.banned_at IS NULL
+  AND sessions.expires_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`;
 
 export function fail(status: number, code: string): never {
   throw new HTTPException(status as ContentfulStatusCode, { message: code });
+}
+
+export function parseSearchQuery(value: string, allowEmpty = false): string {
+  const query = normalizeSearchQuery(value);
+  const length = [...query].length;
+  if (
+    length > maxSearchLength ||
+    (length < minSearchLength && !(allowEmpty && length === 0))
+  )
+    fail(400, "INVALID_INPUT");
+  return query;
+}
+
+export function decodeCursor<T>(
+  encoded: string | undefined,
+  schema: ZodType<T>,
+): T | null {
+  if (!encoded) return null;
+  if (encoded.length > 1024 || !/^[a-zA-Z0-9_-]+$/.test(encoded))
+    fail(400, "INVALID_INPUT");
+  try {
+    const result = schema.safeParse(
+      JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
+    );
+    if (!result.success) fail(400, "INVALID_INPUT");
+    return result.data;
+  } catch {
+    fail(400, "INVALID_INPUT");
+  }
+}
+
+export function encodeCursor(value: object): string {
+  return Buffer.from(JSON.stringify(value)).toString("base64url");
+}
+
+export function adminCursor(value: string | undefined) {
+  if (!value) return null;
+  if (value.length > 128) fail(400, "INVALID_INPUT");
+  const parsed = adminCursorSchema.safeParse(value.split("|"));
+  if (!parsed.success) fail(400, "INVALID_INPUT");
+  const [createdAt, id] = parsed.data;
+  return { createdAt, id };
+}
+
+export function adminPage<T extends { id: string; created_at: string }>(
+  rows: T[],
+) {
+  const page = rows.slice(0, ADMIN_PAGE_SIZE);
+  const last = page.at(-1);
+  return {
+    rows: page,
+    nextCursor:
+      rows.length > ADMIN_PAGE_SIZE && last
+        ? `${last.created_at}|${last.id}`
+        : null,
+  };
 }
 
 export function toPlayer(

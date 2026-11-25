@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { Hono } from "hono";
 import { z } from "zod";
 import type {
@@ -8,10 +7,15 @@ import type {
   TeamsResponse,
 } from "../shared/contracts";
 import {
+  activeSessionSql,
   csrfGuard,
+  decodeCursor,
+  encodeCursor,
   fail,
   newId,
+  parseSearchQuery,
   readJson,
+  requestKey,
   requireAuth,
   throttle,
   type AppEnv,
@@ -21,8 +25,8 @@ interface TeamRow {
   id: string;
   name: string;
   tag: string;
-  captain_id: string;
-  captain_username: string;
+  captain_id: string | null;
+  captain_username: string | null;
   member_count: number;
   created_at: string;
 }
@@ -57,7 +61,14 @@ const createSchema = z
     tag: tagSchema,
   })
   .strict();
-const cursorSchema = z.object({ createdAt: z.string(), id: z.uuid() }).strict();
+const cursorSchema = z
+  .object({ createdAt: z.string().datetime({ precision: 3 }), id: z.uuid() })
+  .strict();
+
+const teamSql = `SELECT teams.id, teams.name, teams.tag, captain.id AS captain_id, captain.username AS captain_username,
+  (SELECT COUNT(*) FROM team_members JOIN users AS roster_user ON roster_user.id = team_members.user_id
+   WHERE team_members.team_id = teams.id AND roster_user.banned_at IS NULL) AS member_count, teams.created_at
+  FROM teams LEFT JOIN users AS captain ON captain.id = teams.captain_id AND captain.banned_at IS NULL`;
 
 export const teamsRouter = new Hono<AppEnv>();
 
@@ -79,83 +90,79 @@ function uniqueConflict(error: unknown): boolean {
   );
 }
 
-teamsRouter.get("/teams", async (c) => {
-  await throttle(c, `teams:${c.get("account")?.id ?? "public"}`, 60, 60);
-  let cursor: z.infer<typeof cursorSchema> | null = null;
-  const encoded = c.req.query("cursor");
-  if (encoded) {
-    try {
-      if (encoded.length > 1024 || !/^[a-zA-Z0-9_-]+$/.test(encoded))
-        fail(400, "INVALID_INPUT");
-      const result = cursorSchema.safeParse(
-        JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
-      );
-      if (!result.success) fail(400, "INVALID_INPUT");
-      cursor = result.data;
-    } catch {
-      fail(400, "INVALID_INPUT");
-    }
+export async function listTeams(
+  db: D1Database,
+  query: string,
+  encodedCursor?: string,
+): Promise<TeamsResponse> {
+  const cursor = decodeCursor(encodedCursor, cursorSchema);
+  const conditions: string[] = [];
+  const bindings: string[] = [];
+  if (query) {
+    conditions.push(
+      "(instr(teams.name_key, ?) > 0 OR instr(teams.tag_key, ?) > 0)",
+    );
+    bindings.push(query, query);
   }
-  const result = cursor
-    ? await c.env.DB.prepare(
-        `SELECT teams.id, teams.name, teams.tag, teams.captain_id, captain.username AS captain_username,
-          (SELECT COUNT(*) FROM team_members WHERE team_id = teams.id) AS member_count, teams.created_at
-         FROM teams INNER JOIN users AS captain ON captain.id = teams.captain_id
-         WHERE teams.created_at < ? OR (teams.created_at = ? AND teams.id < ?)
-         ORDER BY teams.created_at DESC, teams.id DESC LIMIT 21`,
-      )
-        .bind(cursor.createdAt, cursor.createdAt, cursor.id)
-        .all<TeamRow>()
-    : await c.env.DB.prepare(
-        `SELECT teams.id, teams.name, teams.tag, teams.captain_id, captain.username AS captain_username,
-          (SELECT COUNT(*) FROM team_members WHERE team_id = teams.id) AS member_count, teams.created_at
-         FROM teams INNER JOIN users AS captain ON captain.id = teams.captain_id
-         ORDER BY teams.created_at DESC, teams.id DESC LIMIT 21`,
-      ).all<TeamRow>();
+  if (cursor) {
+    conditions.push("(teams.created_at, teams.id) < (?, ?)");
+    bindings.push(cursor.createdAt, cursor.id);
+  }
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : "";
+  const statement = db.prepare(
+    `${teamSql} ${where} ORDER BY teams.created_at DESC, teams.id DESC LIMIT 21`,
+  );
+  const result = await (
+    bindings.length ? statement.bind(...bindings) : statement
+  ).all<TeamRow>();
   const teams = result.results.slice(0, 20).map(toTeam);
   const last = teams.at(-1);
-  const response: TeamsResponse = {
+  return {
     teams,
     nextCursor:
       result.results.length > 20 && last
-        ? Buffer.from(
-            JSON.stringify({ createdAt: last.createdAt, id: last.id }),
-          ).toString("base64url")
+        ? encodeCursor({ createdAt: last.createdAt, id: last.id })
         : null,
   };
-  return c.json(response);
+}
+
+teamsRouter.get("/teams", async (c) => {
+  await throttle(c, `teams:${c.get("account")?.id ?? requestKey(c)}`, 60, 60);
+  const query = parseSearchQuery(c.req.query("q") ?? "", true);
+  return c.json(await listTeams(c.env.DB, query, c.req.query("cursor")));
 });
 
 teamsRouter.get("/teams/:id", async (c) => {
-  await throttle(c, `teams:one:${c.get("account")?.id ?? "public"}`, 60, 60);
+  await throttle(
+    c,
+    `teams:one:${c.get("account")?.id ?? requestKey(c)}`,
+    60,
+    60,
+  );
   const parsed = z.uuid().safeParse(c.req.param("id"));
   if (!parsed.success) fail(404, "NOT_FOUND");
-  const team = await c.env.DB.prepare(
-    `SELECT teams.id, teams.name, teams.tag, teams.captain_id, captain.username AS captain_username,
-      (SELECT COUNT(*) FROM team_members WHERE team_id = teams.id) AS member_count, teams.created_at
-     FROM teams INNER JOIN users AS captain ON captain.id = teams.captain_id
-     WHERE teams.id = ?`,
-  )
-    .bind(parsed.data)
-    .first<TeamRow>();
+  const [teamResult, memberResult] = await c.env.DB.batch<TeamRow | MemberRow>([
+    c.env.DB.prepare(`${teamSql} WHERE teams.id = ?`).bind(parsed.data),
+    c.env.DB.prepare(
+      `SELECT users.id, users.username, team_members.role, team_members.joined_at
+       FROM team_members INNER JOIN users ON users.id = team_members.user_id
+       WHERE team_members.team_id = ? AND users.banned_at IS NULL
+       ORDER BY CASE team_members.role WHEN 'captain' THEN 0 ELSE 1 END, users.username_key`,
+    ).bind(parsed.data),
+  ]);
+  const team = teamResult.results[0] as TeamRow | undefined;
   if (!team) fail(404, "NOT_FOUND");
-  const members = await c.env.DB.prepare(
-    `SELECT users.id, users.username, team_members.role, team_members.joined_at
-     FROM team_members INNER JOIN users ON users.id = team_members.user_id
-     WHERE team_members.team_id = ?
-     ORDER BY CASE team_members.role WHEN 'captain' THEN 0 ELSE 1 END, users.username_key`,
-  )
-    .bind(parsed.data)
-    .all<MemberRow>();
   const response: { team: TeamDetails } = {
     team: {
       ...toTeam(team),
-      members: members.results.map((member): TeamMember => ({
-        id: member.id,
-        username: member.username,
-        role: member.role,
-        joinedAt: member.joined_at,
-      })),
+      members: (memberResult.results as MemberRow[]).map(
+        (member): TeamMember => ({
+          id: member.id,
+          username: member.username,
+          role: member.role,
+          joinedAt: member.joined_at,
+        }),
+      ),
     },
   };
   return c.json(response);
@@ -169,7 +176,8 @@ teamsRouter.post("/teams", requireAuth, csrfGuard, async (c) => {
   try {
     const results = await c.env.DB.batch([
       c.env.DB.prepare(
-        "INSERT INTO teams (id, name, name_key, tag, tag_key, captain_id) VALUES (?, ?, ?, ?, ?, ?)",
+        `INSERT INTO teams (id, name, name_key, tag, tag_key, captain_id)
+         SELECT ?, ?, ?, ?, ?, users.id ${activeSessionSql}`,
       ).bind(
         id,
         body.name,
@@ -177,23 +185,21 @@ teamsRouter.post("/teams", requireAuth, csrfGuard, async (c) => {
         body.tag,
         body.tag.toLowerCase(),
         account.id,
+        c.get("session").token_hash,
       ),
       c.env.DB.prepare(
-        "INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, 'captain')",
-      ).bind(id, account.id),
+        `INSERT INTO team_members (team_id, user_id, role)
+         SELECT id, captain_id, 'captain' FROM teams WHERE id = ? AND changes() > 0`,
+      ).bind(id),
     ]);
+    if (results[0].meta.changes === 0) fail(401, "UNAUTHENTICATED");
     if (results[0].meta.changes !== 1 || results[1].meta.changes !== 1)
       fail(500, "INTERNAL_ERROR");
   } catch (error) {
     if (uniqueConflict(error)) fail(409, "TEAM_UNAVAILABLE");
     throw error;
   }
-  const team = await c.env.DB.prepare(
-    `SELECT teams.id, teams.name, teams.tag, teams.captain_id, captain.username AS captain_username,
-      (SELECT COUNT(*) FROM team_members WHERE team_id = teams.id) AS member_count, teams.created_at
-     FROM teams INNER JOIN users AS captain ON captain.id = teams.captain_id
-     WHERE teams.id = ?`,
-  )
+  const team = await c.env.DB.prepare(`${teamSql} WHERE teams.id = ?`)
     .bind(id)
     .first<TeamRow>();
   if (!team) fail(500, "INTERNAL_ERROR");

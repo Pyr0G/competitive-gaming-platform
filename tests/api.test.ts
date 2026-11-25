@@ -8,9 +8,11 @@ import {
   waitOnExecutionContext,
 } from "cloudflare:test";
 import app from "../worker/index";
+import { sha256 } from "../worker/core";
 import type {
   Account,
   AdminAction,
+  AdminPostsResponse,
   AdminUser,
   AuthResponse,
   Message,
@@ -268,7 +270,8 @@ describe("accounts and public boundaries", () => {
     expect(found.players.map((p) => p.id)).toEqual([user.account.id]);
     expect(
       found.categories.filter((c) => c.available).map((c) => c.type),
-    ).toEqual(["players"]);
+    ).toEqual(["players", "teams"]);
+    expect(found.teams).toEqual([]);
     expect(JSON.stringify(found)).not.toContain(user.account.email);
     const literal = (await (
       await request("/search?q=%25_")
@@ -1138,6 +1141,10 @@ describe("home posts and teams", () => {
     await grantAdmin(admin);
     const player = await register("NewsReader");
     expect((await request("/posts")).status).toBe(200);
+    expect((await request("/admin/posts")).status).toBe(401);
+    expect(
+      (await request("/admin/posts", "GET", undefined, player)).status,
+    ).toBe(403);
     expect(
       (
         await request(
@@ -1157,8 +1164,60 @@ describe("home posts and teams", () => {
     expect(created.status).toBe(201);
     const post = ((await created.json()) as { post: Post }).post;
     expect(post.title).toBe("Season update");
+    expect(post.authorUsername).toBe(admin.account.username);
     const feed = (await (await request("/posts")).json()) as PostsResponse;
     expect(feed.posts.map((item) => item.id)).toContain(post.id);
+    await grantAdmin(player);
+    const edited = await request(
+      `/admin/posts/${post.id}`,
+      "PATCH",
+      { title: "Season update", body: "Registration is open." },
+      player,
+    );
+    expect(edited.status).toBe(200);
+    expect(((await edited.json()) as { post: Post }).post).toMatchObject({
+      id: post.id,
+      authorUsername: admin.account.username,
+      body: "Registration is open.",
+    });
+    await env.DB.prepare("UPDATE users SET is_admin = 0 WHERE id = ?")
+      .bind(player.account.id)
+      .run();
+    expect(
+      (
+        await request(
+          `/admin/posts/${post.id}`,
+          "PATCH",
+          { title: "Season update", body: "Registration opens next week." },
+          player,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      (await request(`/admin/posts/${post.id}`, "DELETE", undefined, player))
+        .status,
+    ).toBe(403);
+    expect(
+      (
+        await request(
+          "/admin/posts",
+          "POST",
+          { title: "Another update", body: "Pending review." },
+          player,
+        )
+      ).status,
+    ).toBe(403);
+    expect(
+      ((await (await request("/posts")).json()) as PostsResponse).posts,
+    ).toMatchObject([{ id: post.id, body: "Registration is open." }]);
+    expect(
+      (await request(`/admin/posts/${post.id}`, "DELETE", undefined, admin))
+        .status,
+    ).toBe(200);
+    expect(
+      (await request(`/admin/posts/${post.id}`, "DELETE", undefined, admin))
+        .status,
+    ).toBe(404);
     expect(
       (
         await request(
@@ -1168,14 +1227,131 @@ describe("home posts and teams", () => {
           admin,
         )
       ).status,
-    ).toBe(200);
-    expect(
-      (await request(`/admin/posts/${post.id}`, "DELETE", undefined, admin))
-        .status,
-    ).toBe(200);
+    ).toBe(404);
     expect(
       ((await (await request("/posts")).json()) as PostsResponse).posts,
     ).toEqual([]);
+  });
+
+  it("paginates all administrator updates, including tied timestamps, while bounding the public feed", async () => {
+    const admin = await register("ArchiveAdmin");
+    await grantAdmin(admin);
+    const ids = Array.from({ length: 53 }, () => crypto.randomUUID())
+      .sort()
+      .reverse();
+    const createdAt = "2026-01-01T12:00:00.000Z";
+    await env.DB.batch(
+      ids.map((id, index) =>
+        env.DB.prepare(
+          "INSERT INTO posts (id, author_id, title, body, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
+        ).bind(
+          id,
+          admin.account.id,
+          `Update ${index + 1}`,
+          "Synthetic update",
+          createdAt,
+          createdAt,
+        ),
+      ),
+    );
+
+    async function page(cursor: string | null = null) {
+      const response = await request(
+        `/admin/posts${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`,
+        "GET",
+        undefined,
+        admin,
+      );
+      expect(response.status).toBe(200);
+      return (await response.json()) as AdminPostsResponse;
+    }
+
+    const feed = (await (await request("/posts")).json()) as PostsResponse;
+    expect(feed.posts.map((post) => post.id)).toEqual(ids.slice(0, 4));
+    const first = await page();
+    expect(first.posts.map((post) => post.id)).toEqual(ids.slice(0, 25));
+    expect(first.nextCursor).not.toBeNull();
+    const second = await page(first.nextCursor);
+    expect(second.posts.map((post) => post.id)).toEqual(ids.slice(25, 50));
+    expect(second.nextCursor).not.toBeNull();
+    const third = await page(second.nextCursor);
+    expect(third.posts.map((post) => post.id)).toEqual(ids.slice(50));
+    expect(third.nextCursor).toBeNull();
+    expect(
+      (await request("/admin/posts?cursor=invalid", "GET", undefined, admin))
+        .status,
+    ).toBe(400);
+
+    const oldest = third.posts.at(-1)!;
+    const updated = await request(
+      `/admin/posts/${oldest.id}`,
+      "PATCH",
+      {
+        title: "Edited archive update",
+        body: oldest.body,
+      },
+      admin,
+    );
+    expect(updated.status).toBe(200);
+    expect((await page(second.nextCursor)).posts.at(-1)?.title).toBe(
+      "Edited archive update",
+    );
+    expect(
+      (await request(`/admin/posts/${oldest.id}`, "DELETE", undefined, admin))
+        .status,
+    ).toBe(200);
+    expect(
+      (await page(second.nextCursor)).posts.map((post) => post.id),
+    ).toEqual(ids.slice(50, -1));
+  });
+
+  it("keeps separate request counters for public visitors and signed-in readers", async () => {
+    const captain = await register("ReadCaptain");
+    const created = await request(
+      "/teams",
+      "POST",
+      { name: "Reading Team", tag: "READ" },
+      captain,
+    );
+    expect(created.status).toBe(201);
+    const team = ((await created.json()) as { team: TeamSummary }).team;
+    const visitors = ["192.0.2.1", "198.51.100.2"];
+    const paths = [
+      { path: "/posts", key: "posts" },
+      { path: "/teams", key: "teams" },
+      { path: `/teams/${team.id}`, key: "teams:one" },
+    ];
+
+    async function count(key: string) {
+      return (
+        await env.DB.prepare("SELECT count FROM rate_limits WHERE key = ?")
+          .bind(await sha256(key))
+          .first<{ count: number }>()
+      )?.count;
+    }
+
+    for (const { path, key } of paths) {
+      for (const visitor of [visitors[0], visitors[1], visitors[0]]) {
+        const ctx = createExecutionContext();
+        const response = await app.fetch(
+          new Request(`https://cgp.example.com/api${path}`, {
+            headers: { "CF-Connecting-IP": visitor },
+          }),
+          {
+            ...env,
+            LOCAL_DEV: undefined,
+            APP_ORIGIN: "https://cgp.example.com",
+          },
+          ctx,
+        );
+        expect(response.status).toBe(200);
+        await waitOnExecutionContext(ctx);
+      }
+      expect((await request(path, "GET", undefined, captain)).status).toBe(200);
+      expect(await count(`${key}:${visitors[0]}`)).toBe(2);
+      expect(await count(`${key}:${visitors[1]}`)).toBe(1);
+      expect(await count(`${key}:${captain.account.id}`)).toBe(1);
+    }
   });
 
   it("creates a team with the founder as captain and rejects duplicate tags", async () => {
@@ -1195,6 +1371,7 @@ describe("home posts and teams", () => {
       team: TeamDetails;
     };
     expect(details.team.members[0]?.role).toBe("captain");
+    expect(details.team.members[0]?.id).toBe(captain.account.id);
     expect(
       (
         await request(
@@ -1207,5 +1384,374 @@ describe("home posts and teams", () => {
     ).toBe(409);
     const list = (await (await request("/teams")).json()) as TeamsResponse;
     expect(list.teams.map((item) => item.id)).toContain(team.id);
+    expect((await request("/auth/logout", "POST", {}, captain)).status).toBe(
+      200,
+    );
+    expect(
+      (
+        await request(
+          "/teams",
+          "POST",
+          { name: "Other Squad", tag: "OS" },
+          captain,
+        )
+      ).status,
+    ).toBe(401);
+    const current = await login(captain.account.username);
+    const admin = await register("TeamAdmin");
+    await grantAdmin(admin);
+    expect(
+      (
+        await request(
+          `/admin/users/${captain.account.id}/ban`,
+          "POST",
+          { reason: "Synthetic moderation" },
+          admin,
+        )
+      ).status,
+    ).toBe(200);
+    expect(
+      (
+        await request(
+          "/teams",
+          "POST",
+          { name: "Another Squad", tag: "AS" },
+          current,
+        )
+      ).status,
+    ).toBe(401);
+    const roster = (
+      await env.DB.prepare(
+        "SELECT team_id, user_id, role FROM team_members",
+      ).all()
+    ).results;
+    expect(roster).toEqual([
+      { team_id: team.id, user_id: captain.account.id, role: "captain" },
+    ]);
+    const storedTeams = (await env.DB.prepare("SELECT id FROM teams").all())
+      .results;
+    expect(storedTeams).toEqual([{ id: team.id }]);
+  });
+
+  it("searches public teams by normalized name and tag through both search entry points", async () => {
+    const captain = await register("NovaCaptain");
+    async function create(name: string, tag: string) {
+      const response = await request("/teams", "POST", { name, tag }, captain);
+      expect(response.status).toBe(201);
+      return ((await response.json()) as { team: TeamSummary }).team;
+    }
+    const named = await create("Łódź Nova", "LNV");
+    const tagged = await create("Cobalt Five", "NOVA");
+    await create("Orion Squad", "ORI");
+
+    for (const [query, expected] of [
+      ["novA", [named.id, tagged.id]],
+      ["ŁÓDŹ", [named.id]],
+      ["ＮＯＶＡ", [named.id, tagged.id]],
+      ["lnv", [named.id]],
+      ["%_", []],
+      ["界".repeat(64), []],
+    ] as const) {
+      const encoded = encodeURIComponent(query);
+      const search = await request(`/search?q=${encoded}&category=teams`);
+      const directory = await request(`/teams?q=${encoded}`);
+      expect(search.status).toBe(200);
+      expect(directory.status).toBe(200);
+      const result = (await search.json()) as SearchResponse;
+      const listed = (await directory.json()) as TeamsResponse;
+      expect(result.players).toEqual([]);
+      expect(result.teams.map((team) => team.id).sort()).toEqual(
+        [...expected].sort(),
+      );
+      expect(listed.teams).toEqual(result.teams);
+      expect(result.nextTeamCursor).toBeNull();
+      expect(listed.nextCursor).toBeNull();
+    }
+
+    const overview = (await (
+      await request("/search?q=nova")
+    ).json()) as SearchResponse;
+    expect(overview.players.map((player) => player.id)).toEqual([
+      captain.account.id,
+    ]);
+    expect(overview.teams.map((team) => team.id).sort()).toEqual(
+      [named.id, tagged.id].sort(),
+    );
+    expect(Object.keys(overview.teams[0]).sort()).toEqual([
+      "captainId",
+      "captainUsername",
+      "createdAt",
+      "id",
+      "memberCount",
+      "name",
+      "tag",
+    ]);
+    expect(JSON.stringify(overview)).not.toContain(captain.account.email);
+    expect(overview.categories).toEqual([
+      { type: "players", available: true },
+      { type: "teams", available: true },
+      { type: "tournaments", available: false },
+    ]);
+    const playersOnly = (await (
+      await request("/search?q=nova&category=players")
+    ).json()) as SearchResponse;
+    expect(playersOnly.players).toEqual(overview.players);
+    expect(playersOnly.teams).toEqual([]);
+    expect((await request("/teams?q=n")).status).toBe(400);
+    expect((await request(`/teams?q=${"a".repeat(65)}`)).status).toBe(400);
+    expect((await request("/search?q=nova&category=tournaments")).status).toBe(
+      400,
+    );
+  });
+
+  it("hides banned team identities from public reads while retaining and restoring membership", async () => {
+    const captain = await register("RosterCaptain");
+    const member = await register("RosterMate");
+    const admin = await register("RosterAdmin");
+    await grantAdmin(admin);
+    const created = await request(
+      "/teams",
+      "POST",
+      { name: "Aurora Squad", tag: "AUR" },
+      captain,
+    );
+    expect(created.status).toBe(201);
+    const team = ((await created.json()) as { team: TeamSummary }).team;
+    await env.DB.prepare(
+      "INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, 'member')",
+    )
+      .bind(team.id, member.account.id)
+      .run();
+
+    async function expectPublic(
+      activeCaptain: Client | null,
+      visibleMembers: Client[],
+    ) {
+      const [directoryResponse, searchResponse, detailsResponse] =
+        await Promise.all([
+          request("/teams?q=aur"),
+          request("/search?q=aur"),
+          request(`/teams/${team.id}`),
+        ]);
+      expect(directoryResponse.status).toBe(200);
+      expect(searchResponse.status).toBe(200);
+      expect(detailsResponse.status).toBe(200);
+      const directory = (await directoryResponse.json()) as TeamsResponse;
+      const search = (await searchResponse.json()) as SearchResponse;
+      const details = (await detailsResponse.json()) as { team: TeamDetails };
+      const expected = {
+        id: team.id,
+        captainId: activeCaptain?.account.id ?? null,
+        captainUsername: activeCaptain?.account.username ?? null,
+        memberCount: visibleMembers.length,
+      };
+      expect(directory.teams).toHaveLength(1);
+      expect(search.teams).toHaveLength(1);
+      expect(directory.teams[0]).toMatchObject(expected);
+      expect(search.teams[0]).toMatchObject(expected);
+      expect(details.team).toMatchObject(expected);
+      expect(details.team.members.map((item) => item.id)).toEqual(
+        visibleMembers.map((item) => item.account.id),
+      );
+      const publicData = JSON.stringify([directory, search, details]);
+      for (const hidden of [captain, member].filter(
+        (item) => !visibleMembers.includes(item),
+      )) {
+        expect(publicData).not.toContain(hidden.account.id);
+        expect(publicData).not.toContain(hidden.account.username);
+      }
+    }
+
+    async function moderate(user: Client, action: "ban" | "unban") {
+      expect(
+        (
+          await request(
+            `/admin/users/${user.account.id}/${action}`,
+            "POST",
+            { reason: "Synthetic roster moderation" },
+            admin,
+          )
+        ).status,
+      ).toBe(200);
+    }
+
+    await expectPublic(captain, [captain, member]);
+    await moderate(member, "ban");
+    await expectPublic(captain, [captain]);
+    await moderate(captain, "ban");
+    await expectPublic(null, []);
+    const persistedTeam = await env.DB.prepare(
+      "SELECT captain_id FROM teams WHERE id = ?",
+    )
+      .bind(team.id)
+      .first<{ captain_id: string }>();
+    expect(persistedTeam?.captain_id).toBe(captain.account.id);
+    const stored = await env.DB.prepare(
+      "SELECT user_id, role FROM team_members WHERE team_id = ? ORDER BY role",
+    )
+      .bind(team.id)
+      .all();
+    expect(stored.results).toEqual([
+      { user_id: captain.account.id, role: "captain" },
+      { user_id: member.account.id, role: "member" },
+    ]);
+    await moderate(member, "unban");
+    await expectPublic(null, [member]);
+    await moderate(captain, "unban");
+    await expectPublic(captain, [captain, member]);
+    expect((await request(`/teams/${crypto.randomUUID()}`)).status).toBe(404);
+  });
+
+  it("paginates player and team search independently and keeps directory filtering across pages", async () => {
+    const captain = await register("OrbitCaptain");
+    const createdAt = "2026-01-01T12:00:00.000Z";
+    const teams = Array.from({ length: 23 }, (_, index) => ({
+      id: crypto.randomUUID(),
+      name: `Orbit Team ${index + 1}`,
+      tag: `OT${index + 1}`,
+    }));
+    await env.DB.batch(
+      teams.flatMap((team) => [
+        env.DB.prepare(
+          "INSERT INTO teams (id, name, name_key, tag, tag_key, captain_id, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        ).bind(
+          team.id,
+          team.name,
+          team.name.toLowerCase(),
+          team.tag,
+          team.tag.toLowerCase(),
+          captain.account.id,
+          createdAt,
+        ),
+        env.DB.prepare(
+          "INSERT INTO team_members (team_id, user_id, role) VALUES (?, ?, 'captain')",
+        ).bind(team.id, captain.account.id),
+      ]),
+    );
+    expect(
+      (
+        await request(
+          "/teams",
+          "POST",
+          { name: "Other Squad", tag: "OTH" },
+          captain,
+        )
+      ).status,
+    ).toBe(201);
+    const otherPlayers = Array.from({ length: 22 }, (_, index) => ({
+      id: crypto.randomUUID(),
+      username: `OrbitPlayer${String(index + 1).padStart(2, "0")}`,
+    }));
+    await env.DB.batch(
+      otherPlayers.map((player) =>
+        env.DB.prepare(
+          "INSERT INTO users (id, username, username_key, email, email_key, password_hash) VALUES (?, ?, ?, ?, ?, 'synthetic')",
+        ).bind(
+          player.id,
+          player.username,
+          player.username.toLowerCase(),
+          `${player.username.toLowerCase()}@example.com`,
+          `${player.username.toLowerCase()}@example.com`,
+        ),
+      ),
+    );
+    const expectedTeams = teams
+      .map((team) => team.id)
+      .sort()
+      .reverse();
+    const expectedPlayers = [
+      captain.account.id,
+      ...otherPlayers.map((player) => player.id),
+    ];
+    const overview = (await (
+      await request("/search?q=orbit")
+    ).json()) as SearchResponse;
+    expect(overview.players.map((player) => player.id)).toEqual(
+      expectedPlayers.slice(0, 20),
+    );
+    expect(overview.teams.map((team) => team.id)).toEqual(
+      expectedTeams.slice(0, 20),
+    );
+    expect(overview.nextCursor).not.toBeNull();
+    expect(overview.nextTeamCursor).not.toBeNull();
+
+    const nextTeams = (await (
+      await request(
+        `/search?q=orbit&category=teams&cursor=${encodeURIComponent(overview.nextTeamCursor!)}`,
+      )
+    ).json()) as SearchResponse;
+    expect(nextTeams.players).toEqual([]);
+    expect(nextTeams.teams.map((team) => team.id)).toEqual(
+      expectedTeams.slice(20),
+    );
+    expect(nextTeams.nextTeamCursor).toBeNull();
+    const nextPlayers = (await (
+      await request(
+        `/search?q=orbit&cursor=${encodeURIComponent(overview.nextCursor!)}`,
+      )
+    ).json()) as SearchResponse;
+    expect(nextPlayers.players.map((player) => player.id)).toEqual(
+      expectedPlayers.slice(20),
+    );
+    expect(nextPlayers.teams).toEqual([]);
+    expect(nextPlayers.nextCursor).toBeNull();
+
+    const directory = (await (
+      await request("/teams?q=orbit")
+    ).json()) as TeamsResponse;
+    expect(directory.teams).toEqual(overview.teams);
+    const nextDirectory = (await (
+      await request(
+        `/teams?q=orbit&cursor=${encodeURIComponent(directory.nextCursor!)}`,
+      )
+    ).json()) as TeamsResponse;
+    expect(nextDirectory.teams).toEqual(nextTeams.teams);
+    expect(nextDirectory.nextCursor).toBeNull();
+    expect(
+      (
+        await request(
+          `/search?q=orbit&category=teams&cursor=${encodeURIComponent(overview.nextCursor!)}`,
+        )
+      ).status,
+    ).toBe(400);
+    expect((await request("/teams?q=orbit&cursor=invalid")).status).toBe(400);
+  });
+
+  it("adds posts and teams through migrations while preserving existing accounts", async () => {
+    await reset();
+    await applyD1Migrations(env.DB, env.TEST_MIGRATIONS.slice(0, 3));
+    const existing = await register("ExistingPlayer");
+    await grantAdmin(existing);
+    await applyD1Migrations(env.DB, env.TEST_MIGRATIONS.slice(3));
+    const me = (await (
+      await request("/auth/me", "GET", undefined, existing)
+    ).json()) as AuthResponse;
+    expect(me.account?.id).toBe(existing.account.id);
+    expect(
+      ((await (await request("/posts")).json()) as PostsResponse).posts,
+    ).toEqual([]);
+    expect(
+      ((await (await request("/teams")).json()) as TeamsResponse).teams,
+    ).toEqual([]);
+    expect(
+      (
+        await request(
+          "/admin/posts",
+          "POST",
+          { title: "Welcome", body: "New feature update." },
+          existing,
+        )
+      ).status,
+    ).toBe(201);
+    expect(
+      (
+        await request(
+          "/teams",
+          "POST",
+          { name: "Migrate Team", tag: "MT" },
+          existing,
+        )
+      ).status,
+    ).toBe(201);
   });
 });

@@ -1,4 +1,3 @@
-import { Buffer } from "node:buffer";
 import { randomBytes } from "node:crypto";
 import { Hono } from "hono";
 import { setCookie } from "hono/cookie";
@@ -10,11 +9,7 @@ import {
   maxSpokenLanguages,
   spokenLanguages,
 } from "../shared/contracts";
-import type {
-  AuthResponse,
-  PlayerResponse,
-  SearchResponse,
-} from "../shared/contracts";
+import type { AuthResponse, PlayerResponse } from "../shared/contracts";
 import {
   clearSessionCookie,
   csrfGuard,
@@ -129,10 +124,6 @@ const changePasswordSchema = z
   })
   .strict()
   .refine((value) => value.password === value.passwordConfirmation);
-const searchCursorSchema = z
-  .object({ key: z.string().max(256), id: z.uuid() })
-  .strict();
-
 export const authRouter = new Hono<AppEnv>();
 
 function authResponse(c: Context<AppEnv>): AuthResponse {
@@ -397,56 +388,6 @@ authRouter.get("/players/:id", async (c) => {
     player: toPlayer(player),
     gaming: toGaming(player),
     relationship,
-  };
-  return c.json(response);
-});
-
-authRouter.get("/search", async (c) => {
-  await throttle(c, `search:${c.get("account")?.id ?? requestKey(c)}`, 60, 60);
-  const query = (c.req.query("q") ?? "").normalize("NFKC").trim().toLowerCase();
-  if ([...query].length < 2 || [...query].length > 64)
-    fail(400, "INVALID_INPUT");
-  let cursor: z.infer<typeof searchCursorSchema> | null = null;
-  const encoded = c.req.query("cursor");
-  if (encoded) {
-    try {
-      if (encoded.length > 1024 || !/^[a-zA-Z0-9_-]+$/.test(encoded))
-        fail(400, "INVALID_INPUT");
-      const result = searchCursorSchema.safeParse(
-        JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
-      );
-      if (!result.success) fail(400, "INVALID_INPUT");
-      cursor = result.data;
-    } catch {
-      fail(400, "INVALID_INPUT");
-    }
-  }
-  const result = cursor
-    ? await c.env.DB.prepare(
-        "SELECT id, username, username_key, bio, created_at FROM users WHERE banned_at IS NULL AND instr(username_key, ?) > 0 AND (username_key > ? OR (username_key = ? AND id > ?)) ORDER BY username_key, id LIMIT 21",
-      )
-        .bind(query, cursor.key, cursor.key, cursor.id)
-        .all<UserRow>()
-    : await c.env.DB.prepare(
-        "SELECT id, username, username_key, bio, created_at FROM users WHERE banned_at IS NULL AND instr(username_key, ?) > 0 ORDER BY username_key, id LIMIT 21",
-      )
-        .bind(query)
-        .all<UserRow>();
-  const players = result.results.slice(0, 20);
-  const last = players[players.length - 1];
-  const response: SearchResponse = {
-    players: players.map(toPlayer),
-    nextCursor:
-      result.results.length > 20 && last
-        ? Buffer.from(
-            JSON.stringify({ key: last.username_key, id: last.id }),
-          ).toString("base64url")
-        : null,
-    categories: [
-      { type: "players", available: true },
-      { type: "teams", available: false },
-      { type: "tournaments", available: false },
-    ],
   };
   return c.json(response);
 });

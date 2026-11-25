@@ -588,6 +588,7 @@ svg {
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
   gap: 20px;
+  min-width: 0;
 }
 .home-news-featured,
 .home-news-list > article,
@@ -604,12 +605,18 @@ svg {
   gap: 12px;
   align-content: start;
 }
+.home-news-featured,
+.home-news-list > article {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .home-news-featured h3 {
   font-size: 24px;
 }
 .home-news-list {
   display: grid;
   gap: 12px;
+  min-width: 0;
 }
 .home-news-list h4 {
   margin-block: 6px 8px;
@@ -669,6 +676,11 @@ svg {
 }
 .entity-card:hover {
   border-color: #597083;
+}
+.entity-card > div,
+.team-header > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .entity-card strong {
   display: block;
@@ -1110,6 +1122,7 @@ svg {
   max-width: 280px;
 }
 .dialog {
+  --dialog-padding: var(--space-6);
   padding: 0;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
@@ -1138,12 +1151,21 @@ svg {
   max-height: inherit;
   min-height: 0;
 }
+.dialog-inner > .form-stack {
+  min-height: 0;
+  min-width: 0;
+  padding: var(--dialog-padding);
+  overflow-y: auto;
+}
+.dialog-inner > .form-stack > * {
+  flex-shrink: 0;
+}
 .dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 19px 24px;
+  padding: 19px var(--dialog-padding);
   border-block-end: 1px solid var(--line);
   flex-shrink: 0;
 }
@@ -1203,9 +1225,11 @@ svg {
 }
 .tabs {
   display: flex;
-  gap: 24px;
+  flex-wrap: wrap;
+  column-gap: 24px;
+  row-gap: 0;
   border-block-end: 1px solid var(--line);
-  overflow-x: auto;
+  flex-shrink: 0;
 }
 .tabs > button {
   padding: 14px 0;
@@ -1234,22 +1258,19 @@ svg {
 .admin-tabs {
   padding-inline: 25px;
   column-gap: 30px;
-  row-gap: 0;
-  flex-wrap: wrap;
-  overflow: visible;
-  flex-shrink: 0;
 }
 .admin-tabs {
   padding-inline: 0;
-}
-:is(.search-dialog .search-tabs, .admin-tabs)
-  > button:is(:hover, :focus-visible) {
-  box-shadow: none;
 }
 .search-results {
   padding: 24px;
   overflow: auto;
   min-height: 260px;
+}
+.search-result-section + .search-result-section {
+  border-block-start: 1px solid var(--line);
+  padding-block-start: var(--space-6);
+  margin-block-start: var(--space-6);
 }
 .results-heading {
   display: flex;
@@ -1263,13 +1284,13 @@ svg {
 .results-heading small {
   color: var(--muted);
 }
-.player-results {
+.search-result-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
   margin-block-end: 20px;
 }
-.player-result {
+.search-result-card {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1279,30 +1300,30 @@ svg {
   border-radius: 5px;
   min-width: 0;
 }
-.player-result:hover {
+.search-result-card:hover {
   background: var(--surface-raised);
   border-color: var(--line-strong);
 }
-.player-result > span:nth-child(2) {
+.search-result-card > span:nth-child(2) {
   min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
-.player-result strong {
+.search-result-card strong {
   font-size: 14px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.player-result small {
+.search-result-card small {
   color: var(--muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 11px;
 }
-.player-result > svg {
+.search-result-card > svg {
   margin-inline-start: auto;
   color: var(--muted);
 }
@@ -1707,10 +1728,6 @@ svg {
   padding: 24px 24px 0;
   font-size: 14px;
 }
-.report-dialog .form-stack,
-.moderation-dialog .form-stack {
-  padding: 24px;
-}
 .report-target {
   display: flex;
   gap: 10px;
@@ -1764,6 +1781,9 @@ svg {
   background: transparent;
   padding-inline: 0;
   font-size: 14px;
+}
+.team-search {
+  margin-block-end: var(--space-6);
 }
 .inline-label {
   display: flex;
@@ -1863,6 +1883,7 @@ tbody tr:last-child td {
   border-radius: 5px;
   padding: 20px;
   background: var(--bg);
+  min-width: 0;
 }
 .report-card > header {
   display: flex;
@@ -1875,6 +1896,9 @@ tbody tr:last-child td {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .report-card > header strong {
   font-size: 15px;
@@ -2187,11 +2211,12 @@ tbody tr:last-child td {
     padding: 28px;
   }
   .dialog {
+    --dialog-padding: 20px;
     max-width: calc(100vw - 24px);
     max-height: calc(100dvh - 32px);
   }
   .dialog-header {
-    padding: 16px 20px;
+    padding: 16px var(--dialog-padding);
   }
   .search-dialog .dialog-header {
     inset-block-start: 15px;
@@ -2213,7 +2238,7 @@ tbody tr:last-child td {
   .search-results {
     padding: 20px;
   }
-  .player-results {
+  .search-result-grid {
     grid-template-columns: 1fr;
   }
   .chat-dialog {
@@ -2311,10 +2336,6 @@ tbody tr:last-child td {
     padding-inline: 8px;
   }
   .locale-dialog .locale-settings {
-    padding: 20px;
-  }
-  .report-dialog .form-stack,
-  .moderation-dialog .form-stack {
     padding: 20px;
   }
   .report-dialog .dialog-inner > .muted,
@@ -2419,12 +2440,11 @@ tbody tr:last-child td {
     .search-trigger,
     .flag-select-trigger,
     .navigation a,
-    .tabs > button,
     .guide-tabs button,
     .guide-tutorial-steps button,
     .guide-match,
     .guide-map,
-    .player-result,
+    .search-result-card,
     .conversation-item,
     .notification-item,
     input,
@@ -2452,7 +2472,7 @@ tbody tr:last-child td {
       .guide-tutorial-steps button,
       .guide-match,
       .guide-map,
-      .player-result,
+      .search-result-card,
       .conversation-item,
       .notification-item,
       .brand,
@@ -2476,12 +2496,11 @@ tbody tr:last-child td {
       .search-trigger,
       .flag-select-trigger,
       .navigation a,
-      .tabs > button,
       .guide-tabs button,
       .guide-tutorial-steps button,
       .guide-match,
       .guide-map,
-      .player-result,
+      .search-result-card,
       .conversation-item,
       .notification-item,
       input,
@@ -2509,7 +2528,7 @@ tbody tr:last-child td {
         .guide-tutorial-steps button,
         .guide-match,
         .guide-map,
-        .player-result,
+        .search-result-card,
         .conversation-item,
         .notification-item,
         .brand,

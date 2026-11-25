@@ -1,5 +1,12 @@
 export type Language = "en" | "pl";
 
+export const minSearchLength = 2;
+export const maxSearchLength = 64;
+
+export function normalizeSearchQuery(value: string): string {
+  return value.normalize("NFKC").trim().toLowerCase();
+}
+
 export const gamingRoles = ["entry", "support", "awp", "igl", "flex"] as const;
 export const availabilityTimes = [
   "daytime",
@@ -93,7 +100,9 @@ export interface SyncResponse {
 
 export interface SearchResponse {
   players: Player[];
+  teams: TeamSummary[];
   nextCursor: string | null;
+  nextTeamCursor: string | null;
   categories: {
     type: "players" | "teams" | "tournaments";
     available: boolean;
@@ -150,12 +159,16 @@ export interface PostsResponse {
   posts: Post[];
 }
 
+export interface AdminPostsResponse extends PostsResponse {
+  nextCursor: string | null;
+}
+
 export interface TeamSummary {
   id: string;
   name: string;
   tag: string;
-  captainId: string;
-  captainUsername: string;
+  captainId: string | null;
+  captainUsername: string | null;
   memberCount: number;
   createdAt: string;
 }
