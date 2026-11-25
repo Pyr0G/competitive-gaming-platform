@@ -52,7 +52,7 @@ CGP/
 |       `-- [ ] TEAM-02 Create persistent teams with immutable IDs, name, tag, and a generated logo; make the founder captain.
 |           |-- [ ] TEAM-03 Add public team pages showing the captain and current roster.
 |           |   |-- [ ] PROF-04 Link current team memberships from public player profiles.
-|           |   `-- [ ] TEAM-04 Add paginated real-team search and connect the Teams category in general search.
+|           |   `-- [x] TEAM-04 Add paginated real-team search by name and tag and connect the Teams category in general search.
 |           |-- [ ] TEAM-05 Enforce captain/member permissions and captain-only team settings on the server.
 |           |   |-- [ ] INV-01 Decide invitation expiry, usage limits, and whether joining requires captain approval.
 |           |   |   `-- [ ] INV-02 Let captains create invitation codes/links, revoke them, and replace them so old invitations stop working.

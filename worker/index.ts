@@ -4,7 +4,10 @@ import { adminRouter } from "./admin";
 import { authRouter } from "./auth";
 import { originGuard, securityHeaders, sessionMiddleware } from "./core";
 import type { AppEnv } from "./core";
+import { postsRouter } from "./posts";
+import { searchRouter } from "./search";
 import { socialRouter } from "./social";
+import { teamsRouter } from "./teams";
 
 export { PasswordHasher } from "./passwords";
 
@@ -20,7 +23,10 @@ app.get("/api/health", async (c) => {
 });
 
 app.route("/api", authRouter);
+app.route("/api", searchRouter);
 app.route("/api", socialRouter);
+app.route("/api", postsRouter);
+app.route("/api", teamsRouter);
 app.route("/api", adminRouter);
 
 app.all("*", async (c) => {

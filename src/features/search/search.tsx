@@ -1,53 +1,123 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Search, UserRoundSearch, X } from "lucide-react";
-import type { Player, SearchResponse } from "../../../shared/contracts";
+import {
+  maxSearchLength,
+  minSearchLength,
+  normalizeSearchQuery,
+  type Player,
+  type SearchResponse,
+  type TeamSummary,
+} from "../../../shared/contracts";
 import { RequestError } from "../../lib/api";
 import { useLocale } from "../../i18n";
 import { useSession } from "../../app/contexts";
 import { Avatar, Dialog, Alert, useAction, Loading } from "../../components/ui";
+
+type SearchCategory = "players" | "teams";
+type SearchTab = "overview" | SearchCategory;
+
+function SearchResultSection({
+  category,
+  count,
+  children,
+  onMore,
+  busy,
+}: {
+  category: SearchCategory;
+  count: number;
+  children: ReactNode;
+  onMore?: () => void;
+  busy: boolean;
+}) {
+  const { t } = useLocale();
+  const title = t(`search.${category}`);
+  return (
+    <section className="search-result-section" aria-label={title}>
+      <div className="results-heading">
+        <h3>{title}</h3>
+        {count > 0 && (
+          <small>
+            {t(category === "players" ? "search.count" : "search.teamCount", {
+              count,
+            })}
+          </small>
+        )}
+      </div>
+      {count > 0 ? (
+        <div className="search-result-grid">{children}</div>
+      ) : (
+        <p className="muted">
+          {t(category === "players" ? "search.empty" : "search.teamsEmpty")}
+        </p>
+      )}
+      {onMore && (
+        <button
+          className="button button-secondary"
+          disabled={busy}
+          onClick={onMore}
+        >
+          {t("common.more")}
+        </button>
+      )}
+    </section>
+  );
+}
 
 export function SearchDialog({ close }: { close: () => void }) {
   const { t } = useLocale();
   const { request } = useSession();
   const [query, setQuery] = useState("");
   const [players, setPlayers] = useState<Player[]>([]);
-  const [cursor, setCursor] = useState<string | null>(null);
+  const [teams, setTeams] = useState<TeamSummary[]>([]);
+  const [playerCursor, setPlayerCursor] = useState<string | null>(null);
+  const [teamCursor, setTeamCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [tab, setTab] = useState("overview");
+  const [tab, setTab] = useState<SearchTab>("overview");
   const queryEpoch = useRef(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const action = useAction();
+  const term = normalizeSearchQuery(query);
+  const ready = [...term].length >= minSearchLength;
   function changeQuery(value: string) {
     queryEpoch.current++;
     setQuery(value);
     setPlayers([]);
-    setCursor(null);
+    setTeams([]);
+    setPlayerCursor(null);
+    setTeamCursor(null);
     setError("");
-    setLoading(value.trim().length >= 2);
+    action.setError("");
+    setLoading([...normalizeSearchQuery(value)].length >= minSearchLength);
   }
   useEffect(() => {
     const controller = new AbortController();
-    if (query.trim().length < 2) return () => controller.abort();
+    const currentEpoch = queryEpoch.current;
+    const isCurrent = () =>
+      !controller.signal.aborted && currentEpoch === queryEpoch.current;
+    if ([...normalizeSearchQuery(query)].length < minSearchLength)
+      return () => controller.abort();
     const timer = setTimeout(() => {
       request<SearchResponse>(`/search?q=${encodeURIComponent(query.trim())}`, {
         signal: controller.signal,
       })
         .then((result) => {
-          if (!controller.signal.aborted) {
+          if (isCurrent()) {
             setPlayers(result.players);
-            setCursor(result.nextCursor);
+            setTeams(result.teams);
+            setPlayerCursor(result.nextCursor);
+            setTeamCursor(result.nextTeamCursor);
           }
         })
         .catch((failure) => {
-          if (!controller.signal.aborted)
+          if (isCurrent())
             setError(
               failure instanceof RequestError ? failure.code : "generic",
             );
         })
         .finally(() => {
-          if (!controller.signal.aborted) setLoading(false);
+          if (isCurrent()) setLoading(false);
         });
     }, 250);
     return () => {
@@ -55,15 +125,26 @@ export function SearchDialog({ close }: { close: () => void }) {
       clearTimeout(timer);
     };
   }, [query, request]);
-  function more() {
+  function more(category: SearchCategory) {
+    const cursor = category === "players" ? playerCursor : teamCursor;
+    if (!cursor) return;
     const currentEpoch = queryEpoch.current;
     void action.run(async () => {
-      const result = await request<SearchResponse>(
-        `/search?q=${encodeURIComponent(query.trim())}&cursor=${encodeURIComponent(cursor!)}`,
-      );
-      if (currentEpoch !== queryEpoch.current) return;
-      setPlayers((current) => [...current, ...result.players]);
-      setCursor(result.nextCursor);
+      try {
+        const result = await request<SearchResponse>(
+          `/search?q=${encodeURIComponent(query.trim())}&category=${category}&cursor=${encodeURIComponent(cursor)}`,
+        );
+        if (currentEpoch !== queryEpoch.current) return;
+        if (category === "players") {
+          setPlayers((current) => [...current, ...result.players]);
+          setPlayerCursor(result.nextCursor);
+        } else {
+          setTeams((current) => [...current, ...result.teams]);
+          setTeamCursor(result.nextTeamCursor);
+        }
+      } catch (failure) {
+        if (currentEpoch === queryEpoch.current) throw failure;
+      }
     });
   }
   return (
@@ -78,7 +159,7 @@ export function SearchDialog({ close }: { close: () => void }) {
         <input
           ref={inputRef}
           value={query}
-          maxLength={64}
+          maxLength={maxSearchLength}
           onChange={(event) => changeQuery(event.target.value)}
           placeholder={t("search.placeholder")}
           aria-label={t("search.label")}
@@ -113,10 +194,9 @@ export function SearchDialog({ close }: { close: () => void }) {
           {t("search.players")}
         </button>
         <button
-          disabled
           role="tab"
-          aria-selected="false"
-          title={t("nav.future")}
+          aria-selected={tab === "teams"}
+          onClick={() => setTab("teams")}
         >
           {t("search.teams")}
         </button>
@@ -130,57 +210,88 @@ export function SearchDialog({ close }: { close: () => void }) {
         </button>
       </div>
       <div className="search-results" role="tabpanel">
-        <div className="results-heading">
-          <h3>{t("search.players")}</h3>
-          {players.length > 0 && (
-            <small>{t("search.count", { count: players.length })}</small>
-          )}
-        </div>
         {loading ? (
           <Loading />
         ) : error ? (
           <Alert code={error} />
-        ) : players.length ? (
-          <div className="player-results">
-            {players.map((player) => (
-              <Link
-                to={`/players/${player.id}`}
-                key={player.id}
-                className="player-result"
-                onClick={close}
-                aria-label={t("search.open", { name: player.username })}
-              >
-                <Avatar name={player.username} />
-                <span>
-                  <strong>{player.username}</strong>
-                  <small>{player.bio}</small>
-                </span>
-                <ArrowUpRight size={17} />
-              </Link>
-            ))}
-          </div>
-        ) : (
+        ) : !ready ? (
           <div className="empty-state compact">
             <UserRoundSearch size={30} />
             <p>
               {t(
-                query.trim().length < 2
-                  ? query
-                    ? "search.minimum"
-                    : "search.hint"
-                  : "search.empty",
+                term
+                  ? "search.minimum"
+                  : tab === "players"
+                    ? "search.playerHint"
+                    : tab === "teams"
+                      ? "search.teamHint"
+                      : "search.hint",
               )}
             </p>
           </div>
-        )}
-        {cursor && (
-          <button
-            className="button button-secondary"
-            disabled={action.busy}
-            onClick={more}
-          >
-            {t("common.more")}
-          </button>
+        ) : (
+          <>
+            {tab !== "teams" && (
+              <SearchResultSection
+                category="players"
+                count={players.length}
+                onMore={playerCursor ? () => more("players") : undefined}
+                busy={action.busy}
+              >
+                {players.map((player) => (
+                  <Link
+                    to={`/players/${player.id}`}
+                    key={player.id}
+                    className="search-result-card"
+                    onClick={close}
+                    aria-label={t("search.open", { name: player.username })}
+                  >
+                    <Avatar name={player.username} />
+                    <span>
+                      <strong>{player.username}</strong>
+                      <small>{player.bio}</small>
+                    </span>
+                    <ArrowUpRight size={17} />
+                  </Link>
+                ))}
+              </SearchResultSection>
+            )}
+            {tab !== "players" && (
+              <SearchResultSection
+                category="teams"
+                count={teams.length}
+                onMore={teamCursor ? () => more("teams") : undefined}
+                busy={action.busy}
+              >
+                {teams.map((team) => (
+                  <Link
+                    to={`/teams/${team.id}`}
+                    key={team.id}
+                    className="search-result-card"
+                    onClick={close}
+                    aria-label={t("search.openTeam", {
+                      name: team.name,
+                      tag: team.tag,
+                    })}
+                  >
+                    <span className="team-tag">{team.tag}</span>
+                    <span>
+                      <strong>{team.name}</strong>
+                      <small>
+                        {team.captainUsername === null
+                          ? t("teams.captainUnavailable")
+                          : t("teams.captain", {
+                              name: team.captainUsername,
+                            })}{" "}
+                        · {t("teams.members", { count: team.memberCount })}
+                      </small>
+                    </span>
+                    <ArrowUpRight size={17} />
+                  </Link>
+                ))}
+              </SearchResultSection>
+            )}
+          </>
         )}
         <Alert code={action.error} />
         {tab === "overview" && (

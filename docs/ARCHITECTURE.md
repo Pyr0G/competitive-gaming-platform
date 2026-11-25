@@ -40,9 +40,9 @@ All writes require the trusted same origin. Authenticated writes also require th
 
 Public player responses contain only ID, username, bio, and join date. The public profile response adds the player's gaming profile. The account response adds the owner's email, language, locale, time zone, administrator flag, and gaming profile.
 
-Gaming profiles are public and self-declared: an optional CS2 role (entry, support, AWPer, IGL, or flex), an optional FACEIT level from 1 to 10, availability periods, and up to five spoken languages. Only the owner edits them, through a separate endpoint that accepts the full profile. Allowed values are shared in `shared/contracts.ts`, validated by the API, and constrained by SQLite checks. Spoken languages are independent of the interface language. The level remains unverified until FACEIT identity linking exists. Search returns non-banned players; future entity categories expose availability rather than demonstration records.
+Gaming profiles are public and self-declared: an optional CS2 role (entry, support, AWPer, IGL, or flex), an optional FACEIT level from 1 to 10, availability periods, and up to five spoken languages. Only the owner edits them, through a separate endpoint that accepts the full profile. Allowed values are shared in `shared/contracts.ts`, validated by the API, and constrained by SQLite checks. Spoken languages are independent of the interface language. The level remains unverified until FACEIT identity linking exists. Search returns non-banned players and public teams. Tournament search remains unavailable.
 
-Player search uses bound literal substring queries on normalized usernames, including Unicode and SQL pattern characters. It avoids D1's small `LIKE` pattern limit while retaining bounded input and cursor pagination.
+Player and team search use bound literal substring queries on normalized usernames, team names and tags. Queries accept 2–64 Unicode code points and use `instr` to avoid D1's small `LIKE` pattern limit. General search returns up to 20 players and 20 teams with independent pagination cursors (`nextCursor` for players and `nextTeamCursor` for teams). Supply the corresponding `category` and `cursor` to load more. Existing requests with a cursor and no category continue to page players. The team directory uses the same filtered team query. Team results include public team summaries and are ordered by creation date and immutable ID. Banned accounts are excluded from public rosters and member counts. Teams remain public with `captainId` and `captainUsername` set to `null` while their captain is banned. Membership and captain assignments stay in D1 so an unban restores visibility. Team detail reads the summary and roster within one D1 batch.
 
 ## Chat and moderation
 
@@ -65,15 +65,18 @@ All endpoints use `/api`. Shared response types live in `shared/contracts.ts`; f
 | Health | `GET /health` checks schema access |
 | Authentication | `GET /auth/me`; `POST /auth/register`, `/auth/login`, `/auth/logout` |
 | Account | `PATCH /account`; `PUT /account/gaming`; `POST /account/password` |
-| Players | `GET /players/:id`; `GET /search?q=...&cursor=...` |
+| Players | `GET /players/:id` |
+| Search | `GET /search?q=...` returns players and teams. Use `category=players` or `category=teams` with the corresponding cursor to load more. |
 | Conversations | `POST /conversations`; `GET /sync`; `GET` and `POST /conversations/:id/messages`; `POST /conversations/:id/read` |
 | Safety | `PUT` and `DELETE /blocks/:playerId`; `POST /reports` |
+| Posts | `GET /posts` returns the four newest updates. Administrator `GET /admin/posts?cursor=...` returns up to 25 updates per page; `POST /admin/posts` creates and `PATCH` or `DELETE /admin/posts/:id` manages an update. |
+| Teams | `GET /teams` with optional `q` and `cursor`, `GET /teams/:id` and authenticated `POST /teams` |
 | Administration | `GET /admin/users`, `/admin/reports`, `/admin/actions`; `POST /admin/users/:id/ban`, `/admin/users/:id/unban`, `/admin/reports/:id/resolve` |
 
 Registration accepts `username`, `email`, `password`, `passwordConfirmation`, and optional `language`, `locale`, and `timeZone`. Sign-in accepts `identifier` and `password`. Authentication results contain `account` and `csrfToken`; anonymous requests return both as `null`. Account updates accept username, bio, and formatting preferences, never email or privileges. Gaming updates accept `role`, `level`, `availability`, and `languages`; `role` and `level` may be `null`, and both lists may be empty.
 
 ## Persistence and verification
 
-D1 holds users and their gaming profiles, sessions, request counters, conversations, messages, read positions, blocks, reports, and moderation actions. SQL constraints enforce uniqueness and support application workflows. Migrations are explicit; startup does not create schemas or seed accounts.
+D1 holds users and their gaming profiles, home posts, teams and memberships, sessions, request counters, conversations, messages, read positions, blocks, reports, and moderation actions. Home posts are public administrator updates, ordered by creation date and immutable ID. Administrators can page through the full history. Teams have immutable IDs, unique names and tags, and make the founder captain. Post mutations require current administrator status, and team creation requires an active account. Both check session validity in the D1 write. Team creation and founder membership are written in one batch. Public post and team reads use separate request counters per authenticated account or Cloudflare connecting IP, following player search. Tournament listings, recruitment ads and ranking rows are not stored yet. Their pages expose empty, database-ready shells. SQL constraints enforce uniqueness and support application workflows. Migrations are explicit, and startup does not create schemas or seed accounts.
 
 Development persists SQLite state under ignored `.wrangler/`. Integration tests reset and migrate isolated bindings. Browser tests use synthetic accounts and separate local storage. Neither suite accesses a hosted database. See [local testing](LOCAL_TESTING.md) and [deployment status](DEPLOYMENT.md) for commands and verification limits.

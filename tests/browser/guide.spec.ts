@@ -14,6 +14,11 @@ test("explores the six Guide chapters with local tournament, recruitment and vet
   });
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Updates", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".home-news .loading")).toHaveCount(0);
+  requests.length = 0;
   const guide = page
     .locator(".sidebar")
     .getByRole("link", { name: "Guide", exact: true });
@@ -296,7 +301,12 @@ test("explores the six Guide chapters with local tournament, recruitment and vet
     page.getByRole("heading", { name: "Create account", exact: true }),
   ).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("main")).toBeEmpty();
+  await expect(
+    page.getByRole("main").getByRole("heading", {
+      name: "Find players. Build teams. Compete.",
+      exact: true,
+    }),
+  ).toBeVisible();
 });
 
 test("supports the full Guide on narrow screens with Polish and keyboard controls", async ({
@@ -403,9 +413,21 @@ test("animates only the How it works tutorial and cancels inactive preview timer
   const buttons = page.locator(".guide-tutorial-steps button");
   await expect(tutorial).toHaveAttribute("data-playing", "true");
   const finishStep = async () => {
-    await page
-      .locator(".guide-step-progress i")
-      .evaluate((element) => element.getAnimations()[0].finish());
+    const progress = tutorial.locator(".guide-step-progress i");
+    await expect(tutorial).toHaveAttribute("data-playing", "true");
+    await expect
+      .poll(() =>
+        progress.evaluate((element) => {
+          const animation = element.getAnimations()[0];
+          return (
+            animation?.playState === "running" &&
+            !animation.pending &&
+            Number(animation.currentTime) > 0
+          );
+        }),
+      )
+      .toBe(true);
+    await progress.evaluate((element) => element.getAnimations()[0].finish());
   };
   for (const index of [1, 2, 3, 0]) {
     await finishStep();
@@ -460,5 +482,10 @@ test("animates only the How it works tutorial and cancels inactive preview timer
           .click();
     });
   await page.clock.runFor(30000);
-  await expect(page.getByRole("main")).toBeEmpty();
+  await expect(
+    page.getByRole("main").getByRole("heading", {
+      name: "Find players. Build teams. Compete.",
+      exact: true,
+    }),
+  ).toBeVisible();
 });

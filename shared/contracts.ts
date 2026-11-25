@@ -1,5 +1,12 @@
 export type Language = "en" | "pl";
 
+export const minSearchLength = 2;
+export const maxSearchLength = 64;
+
+export function normalizeSearchQuery(value: string): string {
+  return value.normalize("NFKC").trim().toLowerCase();
+}
+
 export const gamingRoles = ["entry", "support", "awp", "igl", "flex"] as const;
 export const availabilityTimes = [
   "daytime",
@@ -93,7 +100,9 @@ export interface SyncResponse {
 
 export interface SearchResponse {
   players: Player[];
+  teams: TeamSummary[];
   nextCursor: string | null;
+  nextTeamCursor: string | null;
   categories: {
     type: "players" | "teams" | "tournaments";
     available: boolean;
@@ -135,6 +144,49 @@ export interface AdminAction {
   action: "ban" | "unban" | "resolve_report";
   reason: string;
   createdAt: string;
+}
+
+export interface Post {
+  id: string;
+  title: string;
+  body: string;
+  authorUsername: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PostsResponse {
+  posts: Post[];
+}
+
+export interface AdminPostsResponse extends PostsResponse {
+  nextCursor: string | null;
+}
+
+export interface TeamSummary {
+  id: string;
+  name: string;
+  tag: string;
+  captainId: string | null;
+  captainUsername: string | null;
+  memberCount: number;
+  createdAt: string;
+}
+
+export interface TeamMember {
+  id: string;
+  username: string;
+  role: "captain" | "member";
+  joinedAt: string;
+}
+
+export interface TeamDetails extends TeamSummary {
+  members: TeamMember[];
+}
+
+export interface TeamsResponse {
+  teams: TeamSummary[];
+  nextCursor: string | null;
 }
 
 export interface ApiError {
