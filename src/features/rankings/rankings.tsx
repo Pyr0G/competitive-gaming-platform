@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ChartNoAxesColumnIncreasing } from "lucide-react";
 import { useLocale } from "../../i18n";
 import { PageHeading } from "../../components/ui";
@@ -64,6 +65,9 @@ export function RankingsPage() {
                       )}
                     </h3>
                     <p>{t("rankings.emptyHelp")}</p>
+                    <Link to="/guide" className="button button-secondary">
+                      {t("rankings.seeGuide")}
+                    </Link>
                   </div>
                 </td>
               </tr>

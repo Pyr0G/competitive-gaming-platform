@@ -318,6 +318,8 @@ export function Shell() {
           <nav aria-label={t("footer.navigation")} className="footer-links">
             <Link to="/tournaments">{t("nav.tournaments")}</Link>
             <Link to="/teams">{t("nav.teams")}</Link>
+            <Link to="/recruitment">{t("nav.recruitment")}</Link>
+            <Link to="/rankings">{t("nav.rankings")}</Link>
             <Link to="/guide">{t("nav.guide")}</Link>
             <button onClick={() => setSearch(true)}>{t("search.label")}</button>
             <button onClick={() => setLocale(true)}>{t("locale.title")}</button>

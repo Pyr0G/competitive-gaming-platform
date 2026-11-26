@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Plus, UserRoundSearch } from "lucide-react";
 import { gamingRoles } from "../../../shared/contracts";
 import { useLocale } from "../../i18n";
@@ -91,6 +92,16 @@ export function RecruitmentPage() {
                 : "recruitment.emptyHelp",
             )}
           </p>
+          {!filteredEmpty && (
+            <div className="button-row">
+              <Link to="/teams" className="button button-secondary">
+                {t("recruitment.seeTeams")}
+              </Link>
+              <Link to="/guide" className="button button-secondary">
+                {t("recruitment.seeGuide")}
+              </Link>
+            </div>
+          )}
         </div>
       </section>
       {previewOpen && (
