@@ -8,6 +8,7 @@ import type {
   Report,
 } from "../../../shared/contracts";
 import { json, RequestError } from "../../lib/api";
+import { httpsImageUrl } from "../../lib/url";
 import { useLocale } from "../../i18n";
 import { useSession } from "../../app/contexts";
 import {
@@ -58,6 +59,7 @@ export function AdminPage() {
   const action = useAction();
   const moreAction = useAction();
   const pageEpoch = useRef(0);
+  const bannerPreviewSrc = httpsImageUrl(postEditor?.bannerUrl);
   function resetPage() {
     pageEpoch.current++;
     setLoading(true);
@@ -303,51 +305,56 @@ export function AdminPage() {
         ) : tab === "posts" ? (
           posts.length ? (
             <div className="report-list">
-              {posts.map((post) => (
-                <article className="report-card" key={post.id}>
-                  <header>
-                    <div>
-                      <strong>{post.title}</strong>
-                      <small>
-                        {post.authorUsername} · {date(post.createdAt)}
-                        {post.updatedAt !== post.createdAt
-                          ? ` · ${t("admin.postEdited", { date: date(post.updatedAt) })}`
-                          : ""}
-                      </small>
+              {posts.map((post) => {
+                const bannerSrc = httpsImageUrl(post.bannerUrl);
+                return (
+                  <article className="report-card" key={post.id}>
+                    <header>
+                      <div>
+                        <strong>{post.title}</strong>
+                        <small>
+                          {post.authorUsername} · {date(post.createdAt)}
+                          {post.updatedAt !== post.createdAt
+                            ? ` · ${t("admin.postEdited", { date: date(post.updatedAt) })}`
+                            : ""}
+                        </small>
+                      </div>
+                    </header>
+                    {bannerSrc && (
+                      <img className="post-banner" src={bannerSrc} alt="" />
+                    )}
+                    <p className="user-content">{post.body}</p>
+                    <div className="button-row">
+                      <button
+                        className="button button-secondary button-small"
+                        onClick={() => openPostEditor(post)}
+                        disabled={action.busy}
+                      >
+                        {t("admin.editPost")}
+                      </button>
+                      <button
+                        className="button button-secondary button-small"
+                        onClick={() => {
+                          setPostDeleteId(post.id);
+                          void action.run(async () => {
+                            await request(
+                              `/admin/posts/${post.id}`,
+                              json("DELETE"),
+                            );
+                            refreshPage();
+                          }, "admin.postDeleted");
+                        }}
+                        disabled={action.busy}
+                      >
+                        {t("admin.deletePost")}
+                      </button>
                     </div>
-                  </header>
-                  {post.bannerUrl && (
-                    <img className="post-banner" src={post.bannerUrl} alt="" />
-                  )}
-                  <p className="user-content">{post.body}</p>
-                  <div className="button-row">
-                    <button
-                      className="button button-secondary button-small"
-                      onClick={() => openPostEditor(post)}
-                      disabled={action.busy}
-                    >
-                      {t("admin.editPost")}
-                    </button>
-                    <button
-                      className="button button-secondary button-small"
-                      onClick={() => {
-                        setPostDeleteId(post.id);
-                        void action.run(async () => {
-                          await request(
-                            `/admin/posts/${post.id}`,
-                            json("DELETE"),
-                          );
-                          refreshPage();
-                        }, "admin.postDeleted");
-                      }}
-                      disabled={action.busy}
-                    >
-                      {t("admin.deletePost")}
-                    </button>
-                  </div>
-                  <Alert code={postDeleteId === post.id ? action.error : ""} />
-                </article>
-              ))}
+                    <Alert
+                      code={postDeleteId === post.id ? action.error : ""}
+                    />
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <p className="empty-table">{t("admin.noPosts")}</p>
@@ -515,14 +522,10 @@ export function AdminPage() {
               />
               <small>{t("admin.postBannerHelp")}</small>
             </label>
-            {postEditor.bannerUrl.trim() && (
+            {bannerPreviewSrc && (
               <div className="post-banner-preview">
                 <p className="muted">{t("admin.postBannerPreview")}</p>
-                <img
-                  className="post-banner"
-                  src={postEditor.bannerUrl.trim()}
-                  alt=""
-                />
+                <img className="post-banner" src={bannerPreviewSrc} alt="" />
                 <button
                   type="button"
                   className="button button-secondary button-small"
