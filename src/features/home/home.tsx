@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import type { Post, PostsResponse } from "../../../shared/contracts";
 import { RequestError } from "../../lib/api";
-import { httpsImageUrl } from "../../lib/url";
+import { postBannerUrl } from "../../../shared/post-banner";
 import { useLocale } from "../../i18n";
 import { useSession } from "../../app/contexts";
 import { Alert, Loading } from "../../components/ui";
@@ -49,7 +49,7 @@ export function HomePage() {
   }, [request]);
   const featured = posts[0] ?? null;
   const rest = posts.slice(1, 4);
-  const featuredBannerSrc = httpsImageUrl(featured?.bannerUrl);
+  const featuredBannerSrc = postBannerUrl(featured?.bannerUrl);
   return (
     <div className="page-container home-page">
       <section className="home-hero panel">
@@ -109,7 +109,7 @@ export function HomePage() {
             {rest.length > 0 && (
               <div className="home-news-list">
                 {rest.map((post) => {
-                  const bannerSrc = httpsImageUrl(post.bannerUrl);
+                  const bannerSrc = postBannerUrl(post.bannerUrl);
                   return (
                     <article key={post.id}>
                       {bannerSrc && (

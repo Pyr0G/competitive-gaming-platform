@@ -8,7 +8,10 @@ import type {
   Report,
 } from "../../../shared/contracts";
 import { json, RequestError } from "../../lib/api";
-import { httpsImageUrl } from "../../lib/url";
+import {
+  POST_BANNER_URL_MAX_LENGTH,
+  postBannerUrl,
+} from "../../../shared/post-banner";
 import { useLocale } from "../../i18n";
 import { useSession } from "../../app/contexts";
 import {
@@ -53,13 +56,16 @@ export function AdminPage() {
     title: string;
     body: string;
     bannerUrl: string;
+    originalBannerUrl?: string;
   } | null>(null);
   const [postDeleteId, setPostDeleteId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const action = useAction();
   const moreAction = useAction();
   const pageEpoch = useRef(0);
-  const bannerUrlReady = Boolean(httpsImageUrl(postEditor?.bannerUrl));
+  const bannerInput = postEditor?.bannerUrl.trim();
+  const bannerUrl = postBannerUrl(bannerInput);
+  const invalidBanner = Boolean(bannerInput && !bannerUrl);
   function resetPage() {
     pageEpoch.current++;
     setLoading(true);
@@ -139,18 +145,22 @@ export function AdminPage() {
             title: post.title,
             body: post.body,
             bannerUrl: post.bannerUrl ?? "",
+            originalBannerUrl: post.bannerUrl ?? "",
           }
         : { title: "", body: "", bannerUrl: "" },
     );
   }
   function submitPost(event: FormEvent) {
     event.preventDefault();
-    if (!postEditor) return;
+    if (!postEditor || invalidBanner) return;
     void action.run(async () => {
       const payload = {
         title: postEditor.title,
         body: postEditor.body,
-        bannerUrl: postEditor.bannerUrl.trim(),
+        bannerUrl:
+          (bannerUrl ?? "") === postEditor.originalBannerUrl
+            ? undefined
+            : (bannerUrl ?? ""),
       };
       if (postEditor.id)
         await request(`/admin/posts/${postEditor.id}`, json("PATCH", payload));
@@ -306,7 +316,7 @@ export function AdminPage() {
           posts.length ? (
             <div className="report-list">
               {posts.map((post) => {
-                const bannerSrc = httpsImageUrl(post.bannerUrl);
+                const bannerSrc = postBannerUrl(post.bannerUrl);
                 return (
                   <article className="report-card" key={post.id}>
                     <header>
@@ -510,8 +520,9 @@ export function AdminPage() {
               <input
                 type="url"
                 inputMode="url"
-                maxLength={500}
+                maxLength={POST_BANNER_URL_MAX_LENGTH}
                 placeholder="https://"
+                aria-invalid={invalidBanner}
                 value={postEditor.bannerUrl}
                 onChange={(event) =>
                   setPostEditor({
@@ -522,11 +533,11 @@ export function AdminPage() {
               />
               <small>{t("admin.postBannerHelp")}</small>
             </label>
-            {postEditor.bannerUrl.trim() ? (
+            {bannerInput ? (
               <div className="post-banner-preview">
                 <p className="muted">
                   {t(
-                    bannerUrlReady
+                    bannerUrl
                       ? "admin.postBannerReady"
                       : "admin.postBannerInvalid",
                   )}
@@ -552,7 +563,10 @@ export function AdminPage() {
               >
                 {t("common.cancel")}
               </button>
-              <button className="button" disabled={action.busy}>
+              <button
+                className="button"
+                disabled={action.busy || invalidBanner}
+              >
                 {t(action.busy ? "common.saving" : "common.save")}
               </button>
             </div>

@@ -294,7 +294,8 @@ const en = {
   "admin.postBannerPreview": "Banner preview",
   "admin.postBannerReady":
     "HTTPS banner URL accepted. The image appears on home after save.",
-  "admin.postBannerInvalid": "Use a direct https:// image link.",
+  "admin.postBannerInvalid":
+    "Enter a public HTTPS image link of 12–500 characters without a username or password.",
   "admin.postBannerClear": "Remove banner",
   "admin.postEdited": "Edited {date}",
   "admin.noPosts": "No updates published yet.",
@@ -807,7 +808,8 @@ const pl: Record<keyof typeof en, string> = {
   "admin.postBannerPreview": "Podgląd banera",
   "admin.postBannerReady":
     "Adres HTTPS przyjęty. Obrazek pojawi się na stronie głównej po zapisaniu.",
-  "admin.postBannerInvalid": "Podaj bezpośredni link https:// do obrazka.",
+  "admin.postBannerInvalid":
+    "Podaj publiczny link HTTPS do obrazka (12–500 znaków), bez nazwy użytkownika i hasła.",
   "admin.postBannerClear": "Usuń baner",
   "admin.postEdited": "Edytowano {date}",
   "admin.noPosts": "Brak opublikowanych aktualności.",

@@ -719,9 +719,20 @@ test("publishes home updates and lets administrators manage older posts with ret
     await editor
       .getByLabel("Body", { exact: true })
       .fill("A synthetic public update.");
-    await editor
-      .getByRole("button", { name: "Save changes", exact: true })
-      .click();
+    const banner = editor.getByRole("textbox", { name: "Banner image URL" });
+    const save = editor.getByRole("button", {
+      name: "Save changes",
+      exact: true,
+    });
+    await banner.fill("https://a");
+    await expect(banner).toHaveAttribute("aria-invalid", "true");
+    await expect(save).toBeDisabled();
+    await banner.fill("HTTPS://example.com/banner.jpg");
+    await expect(banner).toHaveAttribute("aria-invalid", "false");
+    await expect(save).toBeEnabled();
+    await editor.getByRole("button", { name: "Remove banner" }).click();
+    await expect(banner).toHaveValue("");
+    await save.click();
     await expect(
       panel.getByText("Update saved.", { exact: true }),
     ).toBeVisible();

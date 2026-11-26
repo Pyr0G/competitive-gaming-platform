@@ -5,6 +5,7 @@ import type {
   Post,
   PostsResponse,
 } from "../shared/contracts";
+import { postBannerUrl } from "../shared/post-banner";
 import {
   ADMIN_PAGE_SIZE,
   activeSessionSql,
@@ -35,23 +36,19 @@ interface PostRow {
 const bannerUrlSchema = z
   .string()
   .trim()
-  .max(500)
-  .transform((value) => (value === "" ? null : value))
-  .pipe(
-    z.union([
-      z.null(),
-      z
-        .string()
-        .url()
-        .refine((value) => value.startsWith("https://")),
-    ]),
-  );
+  .transform((value, ctx) => {
+    if (value === "") return null;
+    const url = postBannerUrl(value);
+    if (url) return url;
+    ctx.addIssue({ code: "custom", message: "Invalid banner URL" });
+    return z.NEVER;
+  });
 
 const postSchema = z
   .object({
     title: z.string().trim().min(1).max(120),
     body: z.string().trim().min(1).max(4000),
-    bannerUrl: bannerUrlSchema.optional().default(null),
+    bannerUrl: bannerUrlSchema.optional(),
   })
   .strict();
 
@@ -62,7 +59,7 @@ function toPost(row: PostRow): Post {
     id: row.id,
     title: row.title,
     body: row.body,
-    bannerUrl: row.banner_url,
+    bannerUrl: postBannerUrl(row.banner_url) ?? null,
     authorUsername: row.author_username,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -132,7 +129,7 @@ postsRouter.post(
         id,
         body.title,
         body.body,
-        body.bannerUrl,
+        body.bannerUrl ?? null,
         created,
         created,
         account.id,
@@ -160,13 +157,15 @@ postsRouter.patch(
     const body = await readJson(c, postSchema);
     const updated = now();
     const row = await c.env.DB.prepare(
-      `UPDATE posts SET title = ?, body = ?, banner_url = ?, updated_at = ?
+      `UPDATE posts SET title = ?, body = ?,
+       banner_url = CASE WHEN ? THEN ? ELSE banner_url END, updated_at = ?
        WHERE id = ? AND EXISTS (${adminActorSql}) RETURNING ${postReturningSql}`,
     )
       .bind(
         body.title,
         body.body,
-        body.bannerUrl,
+        body.bannerUrl === undefined ? 0 : 1,
+        body.bannerUrl ?? null,
         updated,
         parsed.data,
         account.id,
