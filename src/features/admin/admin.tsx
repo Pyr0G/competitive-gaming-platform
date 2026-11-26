@@ -59,7 +59,7 @@ export function AdminPage() {
   const action = useAction();
   const moreAction = useAction();
   const pageEpoch = useRef(0);
-  const bannerPreviewSrc = httpsImageUrl(postEditor?.bannerUrl);
+  const bannerUrlReady = Boolean(httpsImageUrl(postEditor?.bannerUrl));
   function resetPage() {
     pageEpoch.current++;
     setLoading(true);
@@ -522,10 +522,15 @@ export function AdminPage() {
               />
               <small>{t("admin.postBannerHelp")}</small>
             </label>
-            {bannerPreviewSrc && (
+            {postEditor.bannerUrl.trim() ? (
               <div className="post-banner-preview">
-                <p className="muted">{t("admin.postBannerPreview")}</p>
-                <img className="post-banner" src={bannerPreviewSrc} alt="" />
+                <p className="muted">
+                  {t(
+                    bannerUrlReady
+                      ? "admin.postBannerReady"
+                      : "admin.postBannerInvalid",
+                  )}
+                </p>
                 <button
                   type="button"
                   className="button button-secondary button-small"
@@ -536,7 +541,7 @@ export function AdminPage() {
                   {t("admin.postBannerClear")}
                 </button>
               </div>
-            )}
+            ) : null}
             <Alert code={action.error} />
             <div className="button-row">
               <button
