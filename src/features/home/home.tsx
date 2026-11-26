@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { Post, PostsResponse } from "../../../shared/contracts";
 import { RequestError } from "../../lib/api";
+import { postBannerUrl } from "../../../shared/post-banner";
 import { useLocale } from "../../i18n";
 import { useSession } from "../../app/contexts";
 import { Alert, Loading } from "../../components/ui";
@@ -48,6 +49,7 @@ export function HomePage() {
   }, [request]);
   const featured = posts[0] ?? null;
   const rest = posts.slice(1, 4);
+  const featuredBannerSrc = postBannerUrl(featured?.bannerUrl);
   return (
     <div className="page-container home-page">
       <section className="home-hero panel">
@@ -92,21 +94,38 @@ export function HomePage() {
         ) : featured ? (
           <div className="home-news-grid">
             <article className="home-news-featured">
+              {featuredBannerSrc && (
+                <img className="post-banner" src={featuredBannerSrc} alt="" />
+              )}
               <p className="muted">
                 {date(featured.createdAt)} · {featured.authorUsername}
+                {featured.updatedAt !== featured.createdAt
+                  ? ` · ${t("home.newsEdited", { date: date(featured.updatedAt) })}`
+                  : ""}
               </p>
               <h3>{featured.title}</h3>
               <p className="user-content">{featured.body}</p>
             </article>
             {rest.length > 0 && (
               <div className="home-news-list">
-                {rest.map((post) => (
-                  <article key={post.id}>
-                    <p className="muted">{date(post.createdAt)}</p>
-                    <h4>{post.title}</h4>
-                    <p className="user-content">{post.body}</p>
-                  </article>
-                ))}
+                {rest.map((post) => {
+                  const bannerSrc = postBannerUrl(post.bannerUrl);
+                  return (
+                    <article key={post.id}>
+                      {bannerSrc && (
+                        <img className="post-banner" src={bannerSrc} alt="" />
+                      )}
+                      <p className="muted">
+                        {date(post.createdAt)}
+                        {post.updatedAt !== post.createdAt
+                          ? ` · ${t("home.newsEdited", { date: date(post.updatedAt) })}`
+                          : ""}
+                      </p>
+                      <h4>{post.title}</h4>
+                      <p className="user-content">{post.body}</p>
+                    </article>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -1158,20 +1158,55 @@ describe("home posts and teams", () => {
     const created = await request(
       "/admin/posts",
       "POST",
-      { title: "Season update", body: "Registration opens next week." },
+      {
+        title: "Season update",
+        body: "Registration opens next week.",
+        bannerUrl: "HTTPS://example.com/banner.jpg",
+      },
       admin,
     );
     expect(created.status).toBe(201);
     const post = ((await created.json()) as { post: Post }).post;
     expect(post.title).toBe("Season update");
+    expect(post.bannerUrl).toBe("https://example.com/banner.jpg");
     expect(post.authorUsername).toBe(admin.account.username);
     const feed = (await (await request("/posts")).json()) as PostsResponse;
     expect(feed.posts.map((item) => item.id)).toContain(post.id);
+    expect(feed.posts[0]?.bannerUrl).toBe("https://example.com/banner.jpg");
+    for (const bannerUrl of [
+      "http://example.com/insecure.jpg",
+      "https://user@example.com/banner.jpg",
+      "https://:example@example.com/banner.jpg",
+      "https://a",
+      `https://example.com/${"é".repeat(100)}`,
+    ]) {
+      const rejected = await request(
+        "/admin/posts",
+        "POST",
+        { title: "Bad banner", body: "Should fail", bannerUrl },
+        admin,
+      );
+      expect(rejected.status).toBe(400);
+    }
+    const kept = await request(
+      `/admin/posts/${post.id}`,
+      "PATCH",
+      { title: "Season update", body: "Registration opens soon." },
+      admin,
+    );
+    expect(kept.status).toBe(200);
+    expect(((await kept.json()) as { post: Post }).post.bannerUrl).toBe(
+      "https://example.com/banner.jpg",
+    );
     await grantAdmin(player);
     const edited = await request(
       `/admin/posts/${post.id}`,
       "PATCH",
-      { title: "Season update", body: "Registration is open." },
+      {
+        title: "Season update",
+        body: "Registration is open.",
+        bannerUrl: "",
+      },
       player,
     );
     expect(edited.status).toBe(200);
@@ -1179,6 +1214,7 @@ describe("home posts and teams", () => {
       id: post.id,
       authorUsername: admin.account.username,
       body: "Registration is open.",
+      bannerUrl: null,
     });
     await env.DB.prepare("UPDATE users SET is_admin = 0 WHERE id = ?")
       .bind(player.account.id)

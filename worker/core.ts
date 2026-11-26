@@ -247,7 +247,7 @@ export const securityHeaders: MiddlewareHandler<AppEnv> = async (c, next) => {
     : "'self' ws://localhost:* ws://127.0.0.1:* ws://[::1]:*";
   c.header(
     "Content-Security-Policy",
-    `default-src 'none'; script-src ${scripts}; style-src 'self'${settings.secure ? "" : " 'unsafe-inline'"}; img-src 'self' data:; font-src 'self'; connect-src ${connections}; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'`,
+    `default-src 'none'; script-src ${scripts}; style-src 'self'${settings.secure ? "" : " 'unsafe-inline'"}; img-src 'self' data: https:; font-src 'self'; connect-src ${connections}; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'`,
   );
   c.header("X-Content-Type-Options", "nosniff");
   c.header("X-Frame-Options", "DENY");

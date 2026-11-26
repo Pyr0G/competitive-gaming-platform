@@ -8,6 +8,10 @@ import type {
   Report,
 } from "../../../shared/contracts";
 import { json, RequestError } from "../../lib/api";
+import {
+  POST_BANNER_URL_MAX_LENGTH,
+  postBannerUrl,
+} from "../../../shared/post-banner";
 import { useLocale } from "../../i18n";
 import { useSession } from "../../app/contexts";
 import {
@@ -51,12 +55,17 @@ export function AdminPage() {
     id?: string;
     title: string;
     body: string;
+    bannerUrl: string;
+    originalBannerUrl?: string;
   } | null>(null);
   const [postDeleteId, setPostDeleteId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const action = useAction();
   const moreAction = useAction();
   const pageEpoch = useRef(0);
+  const bannerInput = postEditor?.bannerUrl.trim();
+  const bannerUrl = postBannerUrl(bannerInput);
+  const invalidBanner = Boolean(bannerInput && !bannerUrl);
   function resetPage() {
     pageEpoch.current++;
     setLoading(true);
@@ -131,30 +140,31 @@ export function AdminPage() {
     setPostDeleteId(null);
     setPostEditor(
       post
-        ? { id: post.id, title: post.title, body: post.body }
-        : { title: "", body: "" },
+        ? {
+            id: post.id,
+            title: post.title,
+            body: post.body,
+            bannerUrl: post.bannerUrl ?? "",
+            originalBannerUrl: post.bannerUrl ?? "",
+          }
+        : { title: "", body: "", bannerUrl: "" },
     );
   }
   function submitPost(event: FormEvent) {
     event.preventDefault();
-    if (!postEditor) return;
+    if (!postEditor || invalidBanner) return;
     void action.run(async () => {
+      const payload = {
+        title: postEditor.title,
+        body: postEditor.body,
+        bannerUrl:
+          (bannerUrl ?? "") === postEditor.originalBannerUrl
+            ? undefined
+            : (bannerUrl ?? ""),
+      };
       if (postEditor.id)
-        await request(
-          `/admin/posts/${postEditor.id}`,
-          json("PATCH", {
-            title: postEditor.title,
-            body: postEditor.body,
-          }),
-        );
-      else
-        await request(
-          "/admin/posts",
-          json("POST", {
-            title: postEditor.title,
-            body: postEditor.body,
-          }),
-        );
+        await request(`/admin/posts/${postEditor.id}`, json("PATCH", payload));
+      else await request("/admin/posts", json("POST", payload));
       setPostEditor(null);
       refreshPage();
     }, "admin.postSaved");
@@ -305,45 +315,56 @@ export function AdminPage() {
         ) : tab === "posts" ? (
           posts.length ? (
             <div className="report-list">
-              {posts.map((post) => (
-                <article className="report-card" key={post.id}>
-                  <header>
-                    <div>
-                      <strong>{post.title}</strong>
-                      <small>
-                        {post.authorUsername} · {date(post.createdAt)}
-                      </small>
+              {posts.map((post) => {
+                const bannerSrc = postBannerUrl(post.bannerUrl);
+                return (
+                  <article className="report-card" key={post.id}>
+                    <header>
+                      <div>
+                        <strong>{post.title}</strong>
+                        <small>
+                          {post.authorUsername} · {date(post.createdAt)}
+                          {post.updatedAt !== post.createdAt
+                            ? ` · ${t("admin.postEdited", { date: date(post.updatedAt) })}`
+                            : ""}
+                        </small>
+                      </div>
+                    </header>
+                    {bannerSrc && (
+                      <img className="post-banner" src={bannerSrc} alt="" />
+                    )}
+                    <p className="user-content">{post.body}</p>
+                    <div className="button-row">
+                      <button
+                        className="button button-secondary button-small"
+                        onClick={() => openPostEditor(post)}
+                        disabled={action.busy}
+                      >
+                        {t("admin.editPost")}
+                      </button>
+                      <button
+                        className="button button-secondary button-small"
+                        onClick={() => {
+                          setPostDeleteId(post.id);
+                          void action.run(async () => {
+                            await request(
+                              `/admin/posts/${post.id}`,
+                              json("DELETE"),
+                            );
+                            refreshPage();
+                          }, "admin.postDeleted");
+                        }}
+                        disabled={action.busy}
+                      >
+                        {t("admin.deletePost")}
+                      </button>
                     </div>
-                  </header>
-                  <p className="user-content">{post.body}</p>
-                  <div className="button-row">
-                    <button
-                      className="button button-secondary button-small"
-                      onClick={() => openPostEditor(post)}
-                      disabled={action.busy}
-                    >
-                      {t("admin.editPost")}
-                    </button>
-                    <button
-                      className="button button-secondary button-small"
-                      onClick={() => {
-                        setPostDeleteId(post.id);
-                        void action.run(async () => {
-                          await request(
-                            `/admin/posts/${post.id}`,
-                            json("DELETE"),
-                          );
-                          refreshPage();
-                        }, "admin.postDeleted");
-                      }}
-                      disabled={action.busy}
-                    >
-                      {t("admin.deletePost")}
-                    </button>
-                  </div>
-                  <Alert code={postDeleteId === post.id ? action.error : ""} />
-                </article>
-              ))}
+                    <Alert
+                      code={postDeleteId === post.id ? action.error : ""}
+                    />
+                  </article>
+                );
+              })}
             </div>
           ) : (
             <p className="empty-table">{t("admin.noPosts")}</p>
@@ -494,6 +515,44 @@ export function AdminPage() {
                 }
               />
             </label>
+            <label>
+              {t("admin.postBanner")}
+              <input
+                type="url"
+                inputMode="url"
+                maxLength={POST_BANNER_URL_MAX_LENGTH}
+                placeholder="https://"
+                aria-invalid={invalidBanner}
+                value={postEditor.bannerUrl}
+                onChange={(event) =>
+                  setPostEditor({
+                    ...postEditor,
+                    bannerUrl: event.target.value,
+                  })
+                }
+              />
+              <small>{t("admin.postBannerHelp")}</small>
+            </label>
+            {bannerInput ? (
+              <div className="post-banner-preview">
+                <p className="muted">
+                  {t(
+                    bannerUrl
+                      ? "admin.postBannerReady"
+                      : "admin.postBannerInvalid",
+                  )}
+                </p>
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  onClick={() =>
+                    setPostEditor({ ...postEditor, bannerUrl: "" })
+                  }
+                >
+                  {t("admin.postBannerClear")}
+                </button>
+              </div>
+            ) : null}
             <Alert code={action.error} />
             <div className="button-row">
               <button
@@ -504,7 +563,10 @@ export function AdminPage() {
               >
                 {t("common.cancel")}
               </button>
-              <button className="button" disabled={action.busy}>
+              <button
+                className="button"
+                disabled={action.busy || invalidBanner}
+              >
                 {t(action.busy ? "common.saving" : "common.save")}
               </button>
             </div>

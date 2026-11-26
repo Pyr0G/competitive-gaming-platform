@@ -5,6 +5,7 @@ import type {
   Post,
   PostsResponse,
 } from "../shared/contracts";
+import { postBannerUrl } from "../shared/post-banner";
 import {
   ADMIN_PAGE_SIZE,
   activeSessionSql,
@@ -26,15 +27,28 @@ interface PostRow {
   id: string;
   title: string;
   body: string;
+  banner_url: string | null;
   author_username: string;
   created_at: string;
   updated_at: string;
 }
 
+const bannerUrlSchema = z
+  .string()
+  .trim()
+  .transform((value, ctx) => {
+    if (value === "") return null;
+    const url = postBannerUrl(value);
+    if (url) return url;
+    ctx.addIssue({ code: "custom", message: "Invalid banner URL" });
+    return z.NEVER;
+  });
+
 const postSchema = z
   .object({
     title: z.string().trim().min(1).max(120),
     body: z.string().trim().min(1).max(4000),
+    bannerUrl: bannerUrlSchema.optional(),
   })
   .strict();
 
@@ -45,17 +59,18 @@ function toPost(row: PostRow): Post {
     id: row.id,
     title: row.title,
     body: row.body,
+    bannerUrl: postBannerUrl(row.banner_url) ?? null,
     authorUsername: row.author_username,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-const listSql = `SELECT posts.id, posts.title, posts.body, users.username AS author_username, posts.created_at, posts.updated_at
+const listSql = `SELECT posts.id, posts.title, posts.body, posts.banner_url, users.username AS author_username, posts.created_at, posts.updated_at
   FROM posts INNER JOIN users ON users.id = posts.author_id`;
 const postOrderSql = "ORDER BY posts.created_at DESC, posts.id DESC";
 const adminActorSql = `SELECT 1 ${activeSessionSql} AND users.is_admin = 1`;
-const postReturningSql = `id, title, body, (SELECT username FROM users WHERE users.id = posts.author_id) AS author_username, created_at, updated_at`;
+const postReturningSql = `id, title, body, banner_url, (SELECT username FROM users WHERE users.id = posts.author_id) AS author_username, created_at, updated_at`;
 
 async function assertCurrentAdmin(c: Context<AppEnv>) {
   const actor = await c.env.DB.prepare(
@@ -106,14 +121,15 @@ postsRouter.post(
     const id = newId();
     const created = now();
     const row = await c.env.DB.prepare(
-      `INSERT INTO posts (id, author_id, title, body, created_at, updated_at)
-       SELECT ?, users.id, ?, ?, ?, ? ${activeSessionSql} AND users.is_admin = 1
+      `INSERT INTO posts (id, author_id, title, body, banner_url, created_at, updated_at)
+       SELECT ?, users.id, ?, ?, ?, ?, ? ${activeSessionSql} AND users.is_admin = 1
        RETURNING ${postReturningSql}`,
     )
       .bind(
         id,
         body.title,
         body.body,
+        body.bannerUrl ?? null,
         created,
         created,
         account.id,
@@ -141,12 +157,15 @@ postsRouter.patch(
     const body = await readJson(c, postSchema);
     const updated = now();
     const row = await c.env.DB.prepare(
-      `UPDATE posts SET title = ?, body = ?, updated_at = ?
+      `UPDATE posts SET title = ?, body = ?,
+       banner_url = CASE WHEN ? THEN ? ELSE banner_url END, updated_at = ?
        WHERE id = ? AND EXISTS (${adminActorSql}) RETURNING ${postReturningSql}`,
     )
       .bind(
         body.title,
         body.body,
+        body.bannerUrl === undefined ? 0 : 1,
+        body.bannerUrl ?? null,
         updated,
         parsed.data,
         account.id,
