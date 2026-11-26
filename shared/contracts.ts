@@ -150,6 +150,7 @@ export interface Post {
   id: string;
   title: string;
   body: string;
+  bannerUrl: string | null;
   authorUsername: string;
   createdAt: string;
   updatedAt: string;
