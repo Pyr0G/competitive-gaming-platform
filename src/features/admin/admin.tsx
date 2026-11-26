@@ -51,6 +51,7 @@ export function AdminPage() {
     id?: string;
     title: string;
     body: string;
+    bannerUrl: string;
   } | null>(null);
   const [postDeleteId, setPostDeleteId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
@@ -131,30 +132,27 @@ export function AdminPage() {
     setPostDeleteId(null);
     setPostEditor(
       post
-        ? { id: post.id, title: post.title, body: post.body }
-        : { title: "", body: "" },
+        ? {
+            id: post.id,
+            title: post.title,
+            body: post.body,
+            bannerUrl: post.bannerUrl ?? "",
+          }
+        : { title: "", body: "", bannerUrl: "" },
     );
   }
   function submitPost(event: FormEvent) {
     event.preventDefault();
     if (!postEditor) return;
     void action.run(async () => {
+      const payload = {
+        title: postEditor.title,
+        body: postEditor.body,
+        bannerUrl: postEditor.bannerUrl.trim(),
+      };
       if (postEditor.id)
-        await request(
-          `/admin/posts/${postEditor.id}`,
-          json("PATCH", {
-            title: postEditor.title,
-            body: postEditor.body,
-          }),
-        );
-      else
-        await request(
-          "/admin/posts",
-          json("POST", {
-            title: postEditor.title,
-            body: postEditor.body,
-          }),
-        );
+        await request(`/admin/posts/${postEditor.id}`, json("PATCH", payload));
+      else await request("/admin/posts", json("POST", payload));
       setPostEditor(null);
       refreshPage();
     }, "admin.postSaved");
@@ -312,9 +310,15 @@ export function AdminPage() {
                       <strong>{post.title}</strong>
                       <small>
                         {post.authorUsername} · {date(post.createdAt)}
+                        {post.updatedAt !== post.createdAt
+                          ? ` · ${t("admin.postEdited", { date: date(post.updatedAt) })}`
+                          : ""}
                       </small>
                     </div>
                   </header>
+                  {post.bannerUrl && (
+                    <img className="post-banner" src={post.bannerUrl} alt="" />
+                  )}
                   <p className="user-content">{post.body}</p>
                   <div className="button-row">
                     <button
@@ -494,6 +498,42 @@ export function AdminPage() {
                 }
               />
             </label>
+            <label>
+              {t("admin.postBanner")}
+              <input
+                type="url"
+                inputMode="url"
+                maxLength={500}
+                placeholder="https://"
+                value={postEditor.bannerUrl}
+                onChange={(event) =>
+                  setPostEditor({
+                    ...postEditor,
+                    bannerUrl: event.target.value,
+                  })
+                }
+              />
+              <small>{t("admin.postBannerHelp")}</small>
+            </label>
+            {postEditor.bannerUrl.trim() && (
+              <div className="post-banner-preview">
+                <p className="muted">{t("admin.postBannerPreview")}</p>
+                <img
+                  className="post-banner"
+                  src={postEditor.bannerUrl.trim()}
+                  alt=""
+                />
+                <button
+                  type="button"
+                  className="button button-secondary button-small"
+                  onClick={() =>
+                    setPostEditor({ ...postEditor, bannerUrl: "" })
+                  }
+                >
+                  {t("admin.postBannerClear")}
+                </button>
+              </div>
+            )}
             <Alert code={action.error} />
             <div className="button-row">
               <button

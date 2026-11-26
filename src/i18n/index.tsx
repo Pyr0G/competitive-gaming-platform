@@ -204,6 +204,7 @@ const en = {
   "home.newsEmptyHelp":
     "When an administrator publishes a post, it will appear here.",
   "home.open": "Open",
+  "home.newsEdited": "Edited {date}",
   "teams.title": "Teams",
   "teams.help": "Create a team or browse public rosters.",
   "teams.search": "Search teams by name or tag",
@@ -254,7 +255,10 @@ const en = {
   "rankings.emptyTournament": "Tournament standings are empty",
   "rankings.emptyHelp":
     "Tables stay empty until confirmed results are available.",
+  "rankings.seeGuide": "See ranking examples in the Guide",
   "recruitment.title": "Recruitment",
+  "recruitment.seeTeams": "Browse teams",
+  "recruitment.seeGuide": "See recruitment examples in the Guide",
   "recruitment.help":
     "Filters and listing flow are ready. Live ads will appear here next.",
   "recruitment.create": "Create listing",
@@ -284,6 +288,12 @@ const en = {
   "admin.deletePost": "Delete",
   "admin.postTitle": "Title",
   "admin.postBody": "Body",
+  "admin.postBanner": "Banner image URL",
+  "admin.postBannerHelp":
+    "Optional. Use a direct HTTPS image link. Leave empty for text-only updates.",
+  "admin.postBannerPreview": "Banner preview",
+  "admin.postBannerClear": "Remove banner",
+  "admin.postEdited": "Edited {date}",
   "admin.noPosts": "No updates published yet.",
   "admin.postSaved": "Update saved.",
   "admin.postDeleted": "Update deleted.",
@@ -702,6 +712,7 @@ const pl: Record<keyof typeof en, string> = {
   "home.newsEmptyHelp":
     "Gdy administrator opublikuje wpis, pojawi się w tym miejscu.",
   "home.open": "Otwórz",
+  "home.newsEdited": "Edytowano {date}",
   "teams.title": "Drużyny",
   "teams.help": "Załóż drużynę albo przeglądaj publiczne składy.",
   "teams.search": "Szukaj drużyn po nazwie lub tagu",
@@ -753,7 +764,10 @@ const pl: Record<keyof typeof en, string> = {
   "rankings.emptyTournament": "Ranking turniejowy jest pusty",
   "rankings.emptyHelp":
     "Tabele pozostaną puste do czasu potwierdzonych wyników.",
+  "rankings.seeGuide": "Zobacz przykłady rankingów w przewodniku",
   "recruitment.title": "Rekrutacja",
+  "recruitment.seeTeams": "Przeglądaj drużyny",
+  "recruitment.seeGuide": "Zobacz przykłady rekrutacji w przewodniku",
   "recruitment.help":
     "Filtry i przebieg ogłoszeń są gotowe. Żywe ogłoszenia dojdą w kolejnym kroku.",
   "recruitment.create": "Dodaj ogłoszenie",
@@ -784,6 +798,12 @@ const pl: Record<keyof typeof en, string> = {
   "admin.deletePost": "Usuń",
   "admin.postTitle": "Tytuł",
   "admin.postBody": "Treść",
+  "admin.postBanner": "Adres URL banera",
+  "admin.postBannerHelp":
+    "Opcjonalne. Podaj bezpośredni link HTTPS do obrazka. Puste pole = sam tekst.",
+  "admin.postBannerPreview": "Podgląd banera",
+  "admin.postBannerClear": "Usuń baner",
+  "admin.postEdited": "Edytowano {date}",
   "admin.noPosts": "Brak opublikowanych aktualności.",
   "admin.postSaved": "Wpis zapisany.",
   "admin.postDeleted": "Wpis usunięty.",

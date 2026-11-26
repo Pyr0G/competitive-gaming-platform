@@ -613,6 +613,30 @@ svg {
 .home-news-featured h3 {
   font-size: 24px;
 }
+.post-banner {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: var(--radius-small);
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.home-news-featured .post-banner {
+  max-height: 260px;
+}
+.home-news-list .post-banner {
+  max-height: 140px;
+  margin-block-end: 10px;
+}
+.post-banner-preview {
+  display: grid;
+  gap: 8px;
+}
+.report-card .post-banner {
+  margin-block: 0 14px;
+  max-height: 180px;
+}
 .home-news-list {
   display: grid;
   gap: 12px;

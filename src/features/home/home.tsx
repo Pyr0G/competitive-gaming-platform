@@ -92,8 +92,14 @@ export function HomePage() {
         ) : featured ? (
           <div className="home-news-grid">
             <article className="home-news-featured">
+              {featured.bannerUrl && (
+                <img className="post-banner" src={featured.bannerUrl} alt="" />
+              )}
               <p className="muted">
                 {date(featured.createdAt)} · {featured.authorUsername}
+                {featured.updatedAt !== featured.createdAt
+                  ? ` · ${t("home.newsEdited", { date: date(featured.updatedAt) })}`
+                  : ""}
               </p>
               <h3>{featured.title}</h3>
               <p className="user-content">{featured.body}</p>
@@ -102,7 +108,19 @@ export function HomePage() {
               <div className="home-news-list">
                 {rest.map((post) => (
                   <article key={post.id}>
-                    <p className="muted">{date(post.createdAt)}</p>
+                    {post.bannerUrl && (
+                      <img
+                        className="post-banner"
+                        src={post.bannerUrl}
+                        alt=""
+                      />
+                    )}
+                    <p className="muted">
+                      {date(post.createdAt)}
+                      {post.updatedAt !== post.createdAt
+                        ? ` · ${t("home.newsEdited", { date: date(post.updatedAt) })}`
+                        : ""}
+                    </p>
                     <h4>{post.title}</h4>
                     <p className="user-content">{post.body}</p>
                   </article>
