@@ -669,6 +669,96 @@ describe("static asset security", () => {
   });
 });
 
+describe("search indexing", () => {
+  const productionOrigin = "https://cgp.example.com";
+  const productionEnv = {
+    ...env,
+    LOCAL_DEV: undefined,
+    APP_ORIGIN: productionOrigin,
+  };
+
+  it("serves crawler files directly with URLs from the configured origin", async () => {
+    const ctx = createExecutionContext();
+    const assets = {
+      fetch: async () =>
+        new Response("Unexpected SPA fallback", { status: 500 }),
+    } as unknown as Fetcher;
+    const configuration = { ...productionEnv, ASSETS: assets };
+    const fetchDocument = (path: string) =>
+      app.fetch(
+        new Request(`https://other.example.com${path}`),
+        configuration,
+        ctx,
+      );
+
+    const robots = await fetchDocument("/robots.txt");
+    expect(robots.status).toBe(200);
+    expect(robots.headers.get("content-type")).toMatch(/^text\/plain\b/);
+    expect(await robots.text()).toBe(
+      `User-agent: *\nAllow: /\n\nSitemap: ${productionOrigin}/sitemap.xml\n`,
+    );
+
+    const sitemap = await fetchDocument("/sitemap.xml");
+    expect(sitemap.status).toBe(200);
+    expect(sitemap.headers.get("content-type")).toMatch(/^application\/xml\b/);
+    const xml = await sitemap.text();
+    expect(xml).toContain(
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+    );
+    expect(
+      [...xml.matchAll(/<loc>(.*?)<\/loc>/g)].map((match) => match[1]),
+    ).toEqual([`${productionOrigin}/`, `${productionOrigin}/guide`]);
+    await waitOnExecutionContext(ctx);
+  });
+
+  it.each([
+    ["/robots.txt", /^text\/plain\b/],
+    ["/sitemap.xml", /^application\/xml\b/],
+  ])("supports HEAD for %s", async (path, contentType) => {
+    const response = await SELF.fetch(`${origin}${path}`, { method: "HEAD" });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toMatch(contentType);
+    expect(await response.text()).toBe("");
+  });
+
+  it.each([
+    ["/login", "GET", "noindex"],
+    ["/LOGIN/?from=home", "GET", "noindex"],
+    ["/%6Cogin", "HEAD", "noindex"],
+    ["/", "GET", null],
+    ["/guide", "GET", null],
+    ["/register", "GET", null],
+    ["/brand/favicon.png", "GET", null],
+  ])(
+    "sets the appropriate indexing header for %s (%s)",
+    async (path, method, robots) => {
+      const ctx = createExecutionContext();
+      const assets = {
+        fetch: async () =>
+          new Response("Asset response", {
+            headers: {
+              "Content-Type": "text/html",
+              ETag: '"asset"',
+            },
+          }),
+      } as unknown as Fetcher;
+      const response = await app.fetch(
+        new Request(`${productionOrigin}${path}`, { method }),
+        { ...productionEnv, ASSETS: assets },
+        ctx,
+      );
+      expect(response.status).toBe(200);
+      expect(response.headers.get("x-robots-tag")).toBe(robots);
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      expect(response.headers.get("etag")).toBe('"asset"');
+      expect(await response.text()).toBe(
+        method === "HEAD" ? "" : "Asset response",
+      );
+      await waitOnExecutionContext(ctx);
+    },
+  );
+});
+
 describe("private conversations and moderation", () => {
   it("limits synchronization per account across sessions without affecting another account", async () => {
     const a = await register("PlayerOne");
